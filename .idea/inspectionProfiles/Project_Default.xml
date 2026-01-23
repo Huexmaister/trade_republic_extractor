@@ -1,0 +1,94 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="DuplicatedCode" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="GrazieInspection" enabled="false" level="GRAMMAR_ERROR" enabled_by_default="false" />
+    <inspection_tool class="LanguageDetectionInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="asttokens" />
+          <option value="attrs" />
+          <option value="beautifulsoup4" />
+          <option value="certifi" />
+          <option value="cffi" />
+          <option value="charset-normalizer" />
+          <option value="colorama" />
+          <option value="constants_and_tools" />
+          <option value="curl_cffi" />
+          <option value="decorator" />
+          <option value="et_xmlfile" />
+          <option value="executing" />
+          <option value="frozendict" />
+          <option value="greenlet" />
+          <option value="h11" />
+          <option value="idna" />
+          <option value="ipython_pygments_lexers" />
+          <option value="jedi" />
+          <option value="joblib" />
+          <option value="matplotlib-inline" />
+          <option value="multitasking" />
+          <option value="narwhals" />
+          <option value="numpy" />
+          <option value="openpyxl" />
+          <option value="outcome" />
+          <option value="packaging" />
+          <option value="pandas" />
+          <option value="parso" />
+          <option value="peewee" />
+          <option value="platformdirs" />
+          <option value="playwright" />
+          <option value="plotly" />
+          <option value="polars" />
+          <option value="prompt_toolkit" />
+          <option value="protobuf" />
+          <option value="pure_eval" />
+          <option value="pyarrow" />
+          <option value="pycparser" />
+          <option value="pyee" />
+          <option value="Pygments" />
+          <option value="PySocks" />
+          <option value="python-dateutil" />
+          <option value="python-dotenv" />
+          <option value="pytz" />
+          <option value="requests" />
+          <option value="scikit-learn" />
+          <option value="scipy" />
+          <option value="selenium" />
+          <option value="setuptools" />
+          <option value="six" />
+          <option value="sniffio" />
+          <option value="sortedcontainers" />
+          <option value="soupsieve" />
+          <option value="stack-data" />
+          <option value="tabulate" />
+          <option value="threadpoolctl" />
+          <option value="traitlets" />
+          <option value="trio" />
+          <option value="trio-websocket" />
+          <option value="typing_extensions" />
+          <option value="tzdata" />
+          <option value="urllib3" />
+          <option value="wcwidth" />
+          <option value="websocket-client" />
+          <option value="websockets" />
+          <option value="wsproto" />
+          <option value="yfinance" />
+          <option value="nbformat" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="pandas.core.indexes.base.Index.tz_localize" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="SpellCheckingInspection" enabled="false" level="TYPO" enabled_by_default="false">
+      <option name="processCode" value="true" />
+      <option name="processLiterals" value="true" />
+      <option name="processComments" value="true" />
+    </inspection_tool>
+  </profile>
+</component>
