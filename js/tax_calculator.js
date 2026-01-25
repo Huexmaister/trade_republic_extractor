@@ -2,274 +2,291 @@
 
 /**
  * Procesa las transacciones para generar:
- * 1. Reporte FIFO de Trading (Ganancias/Pérdidas realizadas).
+ * 1. Reporte FIFO de Trading (Ganancias/Pérdidas realizadas) con lógica idéntica a Python.
  * 2. Posiciones Abiertas (Cartera actual calculada).
  * 3. Reporte de Ingresos (Dividendos/Intereses).
  */
 function calculateTaxReport(transactions) {
-  // Estructuras de datos
-  const inventory = {}; // Mapa ISIN -> Array de lotes de compra [{date, qty, pricePerUnit, totalCost}]
-  const realizedPnL = []; // Lista de operaciones cerradas
-  const incomeReport = []; // Lista de dividendos/intereses
+  // --- Helpers y Constantes ---
+  const TAX_RATE = 0.19;
+  const TAX_DATE_LIMIT = new Date("2025-07-01");
 
-  // Helper de redondeo a 3 decimales
-  const round3 = (num) => Math.round((num + Number.EPSILON) * 1000) / 1000;
+  const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
+  const round4 = (num) => Math.round((num + Number.EPSILON) * 10000) / 10000;
 
-  // 1. Preparar transacciones: Añadir índice original para estabilidad y normalizar datos
+  // Determina si se debe aplicar retención (ISIN IE + fecha >= limite)
+  const shouldApplyTax = (isin, dateObj) => {
+    if (!isin) return false;
+    return isin.startsWith("IE") && dateObj >= TAX_DATE_LIMIT;
+  };
+
+  // Calcula comisión: 0 si es "Savings" (Plan de Inversión), 1 en otro caso
+  const calculateCommission = (description) => {
+    if (description && description.includes("Savings")) return 0.0;
+    return 1.0;
+  };
+
+  // --- Estructuras de Estado ---
+  // Mapa ISIN -> Objeto Activo { isin, name, fifoQueue: [], closedOps: [], openOps: [], salesDetails: [] }
+  const actives = {};
+  const incomeReport = [];
+  const allSalesDetails = []; // Lista global plana para exportación
+
+  // 1. Preparar y Ordenar Transacciones
   const preparedTxs = transactions.map((tx, index) => {
-    const inc = typeof tx.incoming_amount === 'number' ? tx.incoming_amount : 0;
-    const out = typeof tx.outgoing_amount === 'number' ? tx.outgoing_amount : 0;
-    const qty = typeof tx.quantity === 'number' ? tx.quantity : 0;
-
-    // Determinar fecha
     let dateObj = new Date(0);
-    if (tx.date_iso) {
-      dateObj = new Date(tx.date_iso);
-    } else if (tx.date) {
-      // Intento básico de parseo si falta date_iso
-      dateObj = new Date(tx.date);
-    }
+    if (tx.date_iso) dateObj = new Date(tx.date_iso);
+    else if (tx.date) dateObj = new Date(tx.date);
 
     return {
       ...tx,
       originalIndex: index,
       dateObj: dateObj,
-      inc: inc,
-      out: out,
-      qty: qty,
-      // Normalizar ISIN y Nombre
+      inc: typeof tx.incoming_amount === 'number' ? tx.incoming_amount : 0,
+      out: typeof tx.outgoing_amount === 'number' ? tx.outgoing_amount : 0,
+      qty: typeof tx.quantity === 'number' ? tx.quantity : 0,
       isin: (tx.isin || '').trim().toUpperCase(),
-      name: (tx.name || tx.description || 'Desconocido').trim()
+      name: (tx.name || tx.description || 'Desconocido').trim(),
+      desc: tx.description || ''
     };
   });
 
-  // 2. Ordenar cronológicamente
-  // Criterio: Fecha ascendente -> Índice original ascendente
+  // Ordenar: Fecha ascendente -> Índice original ascendente
   preparedTxs.sort((a, b) => {
     const timeDiff = a.dateObj - b.dateObj;
     if (timeDiff !== 0) return timeDiff;
     return a.originalIndex - b.originalIndex;
   });
 
-  // 3. Procesar FIFO
+  // 2. Procesar Transacciones
   preparedTxs.forEach(tx => {
     const type = tx.type;
-    // Usar ISIN como clave principal para el inventario. Si no hay, usar nombre.
-    const isinKey = tx.isin || tx.name;
-    const year = tx.dateObj.getFullYear();
-    const month = tx.dateObj.getMonth() + 1;
+    const isin = tx.isin;
+    const name = tx.name;
 
-    // --- Lógica de Ingresos ---
+    // --- Ingresos (Dividendos, Intereses) ---
     if (['Interés', 'Rentabilidad', 'Bonificación'].includes(type)) {
+      let incomeType = type;
+      if (type === 'Rentabilidad') incomeType = 'Dividendos';
+      if (type === 'Bonificación') incomeType = 'Saveback';
+
       incomeReport.push({
         fecha: tx.date_iso || tx.date,
-        año: year,
-        mes: month,
-        tipo: type,
-        descripcion: tx.description,
-        bruto: round3(tx.inc),
-        isin: tx.isin
+        año: tx.dateObj.getFullYear(),
+        mes: tx.dateObj.getMonth() + 1,
+        tipo: incomeType,
+        descripcion: tx.desc,
+        bruto: round2(tx.inc),
+        isin: isin
       });
       return;
     }
 
-    // --- Lógica de Trading ---
+    // --- Trading (Operar, Trade, Handel) ---
     if ((type === 'Operar' || type === 'Trade' || type === 'Handel') && tx.qty > 0) {
+      // Inicializar activo si no existe
+      if (!actives[isin]) {
+        actives[isin] = {
+          isin: isin,
+          name: name,
+          fifoQueue: [], // Array de { date, qty, buyPrice, totalCost, commission }
+          salesDetails: []
+        };
+      }
+      const active = actives[isin];
 
-      if (!inventory[isinKey]) inventory[isinKey] = [];
-
-      // DETECTAR COMPRA (Salida de dinero > 0)
+      // --- COMPRA (Outgoing > 0) ---
       if (tx.out > 0) {
-        const netCost = tx.out;
-        // La comisión de compra (1€) es parte del coste de adquisición.
-        // Por tanto, el Coste Base Total es lo que pagamos (netCost).
-        const grossCost = netCost;
+        const commission = calculateCommission(tx.desc);
+        // Precio Compra = (Amount - Commission) / Qty
+        // Amount aquí es tx.out (lo que salió de la cuenta)
+        const buyPrice = (tx.out - commission) / tx.qty;
 
-        // Añadir al inventario
-        inventory[isinKey].push({
+        active.fifoQueue.push({
           date: tx.date_iso,
           qty: tx.qty,
-          pricePerUnit: grossCost / tx.qty,
-          totalCost: grossCost,
-          name: tx.name
+          buyPrice: buyPrice,
+          commission: commission,
+          originalAmount: tx.out
         });
       }
-      // DETECTAR VENTA (Entrada de dinero > 0)
+
+      // --- VENTA (Incoming > 0) ---
       else if (tx.inc > 0) {
-        let remainingToSell = tx.qty;
-        let totalCostBasis = 0;
-        let acquiredDates = [];
+        let qtyToSell = tx.qty;
+        const commission = 1.0; // Venta siempre 1€ (según lógica Python)
 
-        // Consumir del inventario (FIFO)
-        while (remainingToSell > 0.000001 && inventory[isinKey].length > 0) {
-          const batch = inventory[isinKey][0]; // Lote más antiguo
+        // Variables para acumular datos de esta venta
+        let currentSaleGrossProfit = 0.0;
+        let totalBuyCost = 0.0;
+        const matchedBuys = [];
 
-          const take = Math.min(batch.qty, remainingToSell);
-          const costChunk = take * batch.pricePerUnit;
+        // Consumir FIFO
+        while (qtyToSell > 0.000001 && active.fifoQueue.length > 0) {
+          const buyEntry = active.fifoQueue[0];
+          const availableQty = buyEntry.qty;
+          const matchedQty = Math.min(qtyToSell, availableQty);
 
-          totalCostBasis += costChunk;
-          if (!acquiredDates.includes(batch.date)) acquiredDates.push(batch.date);
+          // Guardar detalle del lote casado
+          matchedBuys.push({
+            buy_date: buyEntry.date,
+            matched_qty: matchedQty,
+            buy_price: buyEntry.buyPrice
+          });
 
-          // Actualizar lote
-          batch.qty -= take;
-          batch.totalCost -= costChunk;
-          remainingToSell -= take;
+          // Acumular coste de compra de la parte casada
+          totalBuyCost += matchedQty * buyEntry.buyPrice;
 
-          // Eliminar lote agotado
-          if (batch.qty <= 0.000001) {
-            inventory[isinKey].shift();
+          // Actualizar cantidades
+          qtyToSell -= matchedQty;
+          buyEntry.qty -= matchedQty;
+
+          // Si se agota el lote, sacarlo
+          if (buyEntry.qty <= 0.000001) {
+            active.fifoQueue.shift();
           }
         }
 
-        const netProceeds = tx.inc; // Neto recibido en cuenta
-        const commission = 1.0; // Comisión fija estimada
-        const taxRate = 0.19; // Impuesto estimado (19% España)
+        // --- Cálculo de Impuestos Inverso (Lógica Python) ---
+        let taxes = 0.0;
+        let bruto = 0.0;
+        let sellPrice = 0.0;
 
-        let grossProceeds = 0;
-        let taxEstimate = 0;
-        let grossResult = 0;
+        // Determinar si aplica retención
+        const applyTax = shouldApplyTax(isin, tx.dateObj);
 
-        // Cálculo de Ganancia/Pérdida y Reconstrucción del Bruto
-        // Se asume que el Neto ya tiene descontados los impuestos y la comisión.
-        // Neto = Bruto - Comisión - Impuestos
-        // Impuestos = Ganancia * TaxRate (si Ganancia > 0)
-        // Ganancia = Bruto - Comisión - CosteBase
+        if (applyTax) {
+          // VentaBruta = (Incoming + Comision - 0.19 * CosteCompra) / 0.81
+          const incoming = tx.inc;
+          const vHypothetical = (incoming + commission - (TAX_RATE * totalBuyCost)) / (1 - TAX_RATE);
 
-        // Derivación para Ganancia > 0:
-        // Ganancia = (Neto - CosteBase) / (1 - TaxRate)
-
-        const potentialProfit = netProceeds - totalCostBasis;
-
-        if (potentialProfit > 0) {
-          // Caso Ganancia: Aplicar gross-up de impuestos
-          grossResult = potentialProfit / (1 - taxRate);
-          taxEstimate = grossResult * taxRate;
-          grossProceeds = netProceeds + commission + taxEstimate;
+          if (vHypothetical > totalBuyCost) {
+            // Ganancia -> Retención
+            bruto = vHypothetical;
+            taxes = (bruto - totalBuyCost) * TAX_RATE;
+          } else {
+            // Pérdida -> No retención
+            bruto = incoming + commission;
+            taxes = 0.0;
+          }
         } else {
-          // Caso Pérdida: No hay impuestos
-          grossResult = potentialProfit; // Será negativo
-          taxEstimate = 0;
-          grossProceeds = netProceeds + commission;
+          // No aplica retención
+          bruto = tx.inc + commission;
+          taxes = 0.0;
         }
 
-        realizedPnL.push({
-          año: year,
-          mes: month,
-          activo: tx.name,
-          isin: tx.isin, // Guardamos el ISIN original de la transacción
-          fecha_venta: tx.date_iso || tx.date,
-          fecha_adquisicion: acquiredDates.join(', '),
-          qty_vendida: round3(tx.qty),
-          precio_venta_unitario: round3(grossProceeds / tx.qty),
-          coste_base: round3(totalCostBasis),
-          importe_venta_bruto: round3(grossProceeds),
-          importe_venta_neto: round3(netProceeds),
-          resultado_bruto: round3(grossResult),
-          comision_estimada: commission,
-          impuesto_estimado: round3(taxEstimate),
-          es_perdida: grossResult < 0
+        sellPrice = bruto / tx.qty;
+
+        // Calcular Beneficios
+        // Gross Profit = (Precio Venta - Precio Compra) * Cantidad Casada
+        // Lo calculamos sumando los tramos
+        matchedBuys.forEach(match => {
+          const profit = (sellPrice - match.buy_price) * match.matched_qty;
+          currentSaleGrossProfit += profit;
         });
+
+        const netProfit = currentSaleGrossProfit - commission - taxes;
+
+        // Construir objeto de detalle de venta
+        const saleDetail = {
+          active_name: name,
+          active_isin: isin,
+          sell_date: tx.date_iso,
+          sell_operation: {
+            type: "SellOperation",
+            isin: isin,
+            str_date: tx.date_iso,
+            description: tx.desc,
+            qty: tx.qty,
+            amount: tx.inc,
+            comissions: commission,
+            taxes: round2(taxes),
+            bruto: round2(bruto),
+            sell_price: round4(sellPrice)
+          },
+          gross_profit: round2(currentSaleGrossProfit),
+          net_profit: round2(netProfit),
+          comissions: commission,
+          taxes: round2(taxes),
+          matched_buys: matchedBuys.map(m => ({
+            buy_operation: {
+              str_date: m.buy_date
+              // Simplificado, no tenemos todo el objeto BuyOperation original aquí, pero sí lo relevante
+            },
+            matched_qty: round4(m.matched_qty),
+            buy_price: round4(m.buy_price)
+          }))
+        };
+
+        active.salesDetails.push(saleDetail);
+        allSalesDetails.push(saleDetail);
       }
     }
   });
 
-  // --- Procesar Posiciones Abiertas ---
+  // 3. Generar Reportes Finales
+
+  // A) Ordenar ventas históricas por fecha descendente
+  allSalesDetails.sort((a, b) => {
+    const dateA = new Date(a.sell_date);
+    const dateB = new Date(b.sell_date);
+    return dateB - dateA;
+  });
+
+  // B) Generar lista de posiciones abiertas
   const openPositions = [];
-  Object.keys(inventory).forEach(key => {
-    const batches = inventory[key];
+  Object.values(actives).forEach(active => {
     let totalQty = 0;
-    let totalCost = 0;
-    let name = '';
-    let isin = '';
+    let totalCost = 0; // Valor actual basado en precio de compra remanente
 
-    batches.forEach(b => {
-      totalQty += b.qty;
-      totalCost += b.totalCost;
-      name = b.name || name;
+    active.fifoQueue.forEach(batch => {
+      totalQty += batch.qty;
+      // Coste del lote remanente = qty * buyPrice
+      totalCost += batch.qty * batch.buyPrice;
     });
-
-    // Intentar recuperar ISIN de la clave si es posible, o del nombre guardado
-    isin = key.match(/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/) ? key : '';
 
     if (totalQty > 0.000001) {
       openPositions.push({
-        isin: isin,
-        nombre: name || key,
-        cantidad: round3(totalQty),
-        coste_total: round3(totalCost),
-        precio_promedio: round3(totalCost / totalQty)
+        isin: active.isin,
+        nombre: active.name,
+        cantidad: round4(totalQty),
+        coste_total: round2(totalCost),
+        precio_promedio: round4(totalCost / totalQty)
       });
     }
   });
+
+  // C) Generar lista "realized" para la tabla UI (formato plano simplificado)
+  const realizedPnL = allSalesDetails.map(detail => {
+    const sellOp = detail.sell_operation;
+    // Coste base = Bruto - GrossProfit
+    const costeBase = sellOp.bruto - detail.gross_profit;
+
+    return {
+      fecha_venta: sellOp.str_date,
+      activo: detail.active_name,
+      isin: detail.active_isin,
+      qty_vendida: sellOp.qty,
+      importe_venta_neto: sellOp.amount, // Lo que llegó al banco
+      importe_venta_bruto: sellOp.bruto,
+      coste_base: round2(costeBase),
+      resultado_bruto: detail.gross_profit, // Ganancia/Pérdida bruta
+      comision_estimada: detail.comissions,
+      impuesto_estimado: detail.taxes,
+      es_perdida: detail.gross_profit < 0
+    };
+  });
+
+  // D) Generar incomeJson (agrupado por año/mes)
+  const incomeJson = buildNestedIncomeStructure(incomeReport, round2);
 
   return {
     realized: realizedPnL,
     open: openPositions,
     income: incomeReport,
-
-    // Estructura anidada para JSON
-    fifoJson: buildNestedFifoStructure(realizedPnL, round3),
-    incomeJson: buildNestedIncomeStructure(incomeReport, round3)
+    fifoJson: allSalesDetails, // Este es el JSON detallado que quería el usuario
+    incomeJson: incomeJson
   };
-}
-
-function buildNestedFifoStructure(flatList, roundFn) {
-  const result = {};
-  flatList.forEach(item => {
-    if (!result[item.año]) result[item.año] = {};
-    if (!result[item.año][item.mes]) result[item.año][item.mes] = {};
-
-    // Clave única por activo: ISIN + Nombre para diferenciar Turbos con mismo nombre
-    const key = item.isin ? `${item.isin} ${item.activo}` : item.activo;
-
-    if (!result[item.año][item.mes][key]) {
-      result[item.año][item.mes][key] = {
-        fecha_venta: item.fecha_venta,
-        qty_vendida: 0,
-        precio_venta: 0,
-        bruto: 0,
-        comision: 0,
-        impuestos: 0,
-        neto: 0,
-        coste_base: 0,
-        ganancia_perdida: 0,
-        porcentaje_ganancia: 0
-      };
-    }
-
-    const entry = result[item.año][item.mes][key];
-
-    entry.qty_vendida += item.qty_vendida;
-    entry.bruto += item.importe_venta_bruto;
-    entry.neto += item.importe_venta_neto;
-    entry.comision += item.comision_estimada;
-    entry.impuestos += item.impuesto_estimado;
-    entry.coste_base += item.coste_base;
-    entry.ganancia_perdida += item.resultado_bruto;
-
-    // Recalcular precio medio
-    if (entry.qty_vendida > 0) {
-      entry.precio_venta = entry.bruto / entry.qty_vendida;
-    }
-
-    // Redondeo final
-    entry.qty_vendida = roundFn(entry.qty_vendida);
-    entry.bruto = roundFn(entry.bruto);
-    entry.neto = roundFn(entry.neto);
-    entry.comision = roundFn(entry.comision);
-    entry.impuestos = roundFn(entry.impuestos);
-    entry.coste_base = roundFn(entry.coste_base);
-    entry.ganancia_perdida = roundFn(entry.ganancia_perdida);
-    entry.precio_venta = roundFn(entry.precio_venta);
-
-    // Calculate percentage gain/loss
-    if (entry.coste_base > 0) {
-      entry.porcentaje_ganancia = roundFn((entry.ganancia_perdida / entry.coste_base) * 100);
-    } else {
-      entry.porcentaje_ganancia = 0;
-    }
-  });
-  return result;
 }
 
 function buildNestedIncomeStructure(flatList, roundFn) {
