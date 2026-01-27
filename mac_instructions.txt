@@ -1,0 +1,134 @@
+COMO EJECUTAR EL PROYECTO EN MACOS
+==================================
+
+Sigue estos pasos para configurar y ejecutar el script "run.command" en tu Mac.
+Esto soluciona problemas comunes de permisos o formato de archivo si vienes de Windows.
+
+PASO 1: ABRIR LA TERMINAL
+-------------------------
+1. Pulsa "Cmd + Espacio" para abrir la búsqueda de Spotlight.
+2. Escribe "Terminal" y pulsa Enter.
+
+
+PASO 2: NAVEGAR A LA CARPETA DEL PROYECTO
+-----------------------------------------
+1. En la Terminal, escribe "cd " (con un espacio al final).
+2. Arrastra la carpeta de este proyecto desde el Finder y suéltala en la ventana de la Terminal. La ruta se completará sola.
+3. Pulsa Enter.
+
+El comando se verá similar a esto:
+cd /Users/tu_usuario/Desktop/GitProjects/trade_republic_extractor
+
+
+PASO 3: CREAR EL ARCHIVO run.command
+------------------------------------
+Vamos a crearlo desde cero para asegurar que tiene el formato correcto.
+
+1. Copia y pega el siguiente comando en la Terminal y pulsa Enter:
+
+   nano run.command
+
+2. Se abrirá un editor de texto dentro de la Terminal. Copia todo el bloque de código de abajo (desde #!/bin/bash hasta el final) y pégalo en la ventana de la Terminal ("Cmd + V"):
+
+   ------------------ COPIAR DESDE AQUI ------------------
+   #!/bin/bash
+
+   # ============================================================================
+   #  Script para iniciar el entorno de desarrollo en macOS (Doble Click)
+   # ============================================================================
+
+   # Asegurar que estamos en el directorio del script
+   cd "$(dirname "$0")"
+
+   # --- Configuracion ---
+   PORT=9000
+
+   echo ""
+   echo " ================================================"
+   echo "     Levantando el Servidor de TradeRepublic"
+   echo " ================================================"
+   echo ""
+
+   # 1. Verificar si Python esta instalado
+   PYTHON_CMD=python3
+   if ! command -v $PYTHON_CMD &> /dev/null; then
+       PYTHON_CMD=python
+       if ! command -v $PYTHON_CMD &> /dev/null; then
+           echo " [ERROR] No se ha encontrado Python."
+           echo "         Por favor, instala Python 3 para continuar."
+           exit 1
+       fi
+   fi
+   echo " - Python detectado."
+
+   # 2. Iniciar el servidor HTTP en segundo plano (Logs ocultos)
+   echo " - Iniciando servidor en http://localhost:$PORT"
+   $PYTHON_CMD -m http.server $PORT > /dev/null 2>&1 &
+   SERVER_PID=$!
+
+   # Esperar un momento para que el servidor este listo
+   sleep 2
+
+   # 3. Abrir el navegador en modo privado/incognito
+   echo " - Abriendo el navegador en modo privado..."
+
+   # Detectar SO y abrir el navegador correspondiente
+   if [[ "$OSTYPE" == "darwin"* ]]; then
+       # Para macOS (puedes descomentar tu navegador preferido)
+       # open -a "Google Chrome" --args --incognito "http://localhost:$PORT"
+       # open -a "Firefox" --args -private-window "http://localhost:$PORT"
+       open -a "Safari" "http://localhost:$PORT" # Safari no tiene flag para modo privado
+   else
+       # Fallback si se ejecuta en otro entorno
+       echo "   No se pudo detectar macOS. Intentando abrir navegador genérico..."
+       open "http://localhost:$PORT"
+   fi
+
+   echo ""
+   echo " ================================================"
+   echo ""
+   echo " El servidor esta activo y listo."
+   echo ""
+   read -n 1 -s -r -p " Pulsa cualquier tecla para detener el servidor."
+   echo ""
+   echo ""
+
+   # 4. Detener el servidor
+   echo " - Deteniendo el servidor (PID: $SERVER_PID)..."
+   kill $SERVER_PID
+
+   echo ""
+   echo " ================================================"
+   echo "  Servidor detenido. ¡Hasta pronto!"
+   echo " ================================================"
+   echo ""
+   ------------------ HASTA AQUI ------------------
+
+3. Ahora, guarda y sal del editor:
+   - Pulsa "Ctrl + O" (es la letra "O", no el cero).
+   - Pulsa Enter para confirmar el nombre del archivo.
+   - Pulsa "Ctrl + X" para salir.
+
+
+PASO 4: DAR PERMISOS DE EJECUCION
+---------------------------------
+Para que macOS te permita ejecutar el archivo, necesitas darle permisos.
+
+1. Copia y pega el siguiente comando en la Terminal y pulsa Enter:
+
+   chmod +x run.command
+
+
+¡LISTO!
+-------
+Ahora puedes ir a la carpeta del proyecto en el Finder y hacer DOBLE CLIC en "run.command".
+Se abrirá la Terminal, se iniciará el servidor y se abrirá una ventana de Chrome en modo incógnito.
+
+
+SOLUCION DE PROBLEMAS
+---------------------
+Si al hacer doble clic, macOS muestra un aviso de seguridad ("no se puede abrir porque proviene de un desarrollador no identificado"), ejecuta este último comando en la Terminal para eliminar esa advertencia de seguridad para este archivo:
+
+   xattr -c run.command
+
+Después de ejecutarlo, intenta hacer doble clic de nuevo.

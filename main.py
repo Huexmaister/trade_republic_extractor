@@ -11,7 +11,7 @@ import pprint
 class Main:
     def __init__(self):
         self.CT: ConstantsAndTools = ConstantsAndTools()
-        with open('data/input_data/extracto.json', 'r', encoding='utf-8') as f:
+        with open('data/input_data/extracto_ines.json', 'r', encoding='utf-8') as f:
             self.extracto: dict = json.load(f)
 
         # -- Lista que va a contener los diferentes activos

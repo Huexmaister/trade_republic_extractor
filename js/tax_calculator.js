@@ -107,7 +107,8 @@ function calculateTaxReport(transactions) {
           qty: tx.qty,
           buyPrice: buyPrice,
           commission: commission,
-          originalAmount: tx.out
+          originalAmount: tx.out,
+          commissionCharged: false // Flag to track if commission has been charged
         });
       }
 
@@ -127,11 +128,19 @@ function calculateTaxReport(transactions) {
           const availableQty = buyEntry.qty;
           const matchedQty = Math.min(qtyToSell, availableQty);
 
+          // Calculate commission for this match (User logic: full commission on first touch)
+          let matchedCommission = 0;
+          if (!buyEntry.commissionCharged && buyEntry.commission > 0) {
+             matchedCommission = buyEntry.commission;
+             buyEntry.commissionCharged = true;
+          }
+
           // Guardar detalle del lote casado
           matchedBuys.push({
             buy_date: buyEntry.date,
             matched_qty: matchedQty,
-            buy_price: buyEntry.buyPrice
+            buy_price: buyEntry.buyPrice,
+            commission: matchedCommission
           });
 
           // Acumular coste de compra de la parte casada
@@ -185,7 +194,44 @@ function calculateTaxReport(transactions) {
           currentSaleGrossProfit += profit;
         });
 
-        const netProfit = currentSaleGrossProfit - commission - taxes;
+        // Sum of buy commissions (excluding savings plans which are 0 anyway)
+        const totalBuyCommissions = matchedBuys.reduce((sum, m) => sum + m.commission, 0);
+        const totalCommissions = commission + totalBuyCommissions;
+
+        const netProfit = currentSaleGrossProfit - totalCommissions - taxes;
+
+        // --- CALCULO DETALLADO POR LOTE (Para visualización perfecta) ---
+        const detailedMatchedBuys = matchedBuys.map(m => {
+          // Ratio de esta parte respecto al total vendido
+          const ratio = m.matched_qty / tx.qty;
+
+          // 1. Beneficio Bruto del lote
+          const batchGross = (sellPrice - m.buy_price) * m.matched_qty;
+
+          // 2. Comisiones imputables al lote
+          // = Comisión de compra específica de este lote + Parte proporcional de la comisión de venta
+          const partSellComm = commission * ratio;
+          const batchComm = m.commission + partSellComm;
+
+          // 3. Impuestos imputables al lote (prorrateados)
+          const batchTax = taxes * ratio;
+
+          // 4. Beneficio Neto del lote
+          const batchNet = batchGross - batchComm - batchTax;
+
+          return {
+            buy_operation: {
+              str_date: m.buy_date
+            },
+            matched_qty: round4(m.matched_qty),
+            buy_price: round4(m.buy_price),
+            // Nuevos campos calculados
+            batch_gross_profit: round2(batchGross),
+            batch_commissions: round2(batchComm),
+            batch_taxes: round2(batchTax),
+            batch_net_profit: round2(batchNet)
+          };
+        });
 
         // Construir objeto de detalle de venta
         const saleDetail = {
@@ -206,16 +252,9 @@ function calculateTaxReport(transactions) {
           },
           gross_profit: round2(currentSaleGrossProfit),
           net_profit: round2(netProfit),
-          comissions: commission,
+          comissions: round2(totalCommissions),
           taxes: round2(taxes),
-          matched_buys: matchedBuys.map(m => ({
-            buy_operation: {
-              str_date: m.buy_date
-              // Simplificado, no tenemos todo el objeto BuyOperation original aquí, pero sí lo relevante
-            },
-            matched_qty: round4(m.matched_qty),
-            buy_price: round4(m.buy_price)
-          }))
+          matched_buys: detailedMatchedBuys
         };
 
         active.salesDetails.push(saleDetail);
@@ -273,7 +312,14 @@ function calculateTaxReport(transactions) {
       resultado_bruto: detail.gross_profit, // Ganancia/Pérdida bruta
       comision_estimada: detail.comissions,
       impuesto_estimado: detail.taxes,
-      es_perdida: detail.gross_profit < 0
+      es_perdida: detail.gross_profit < 0,
+      // New fields for UI
+      ingresado: sellOp.amount,
+      bruto: detail.gross_profit,
+      impuestos: detail.taxes,
+      comision: detail.comissions,
+      neto: detail.net_profit,
+      lotes: detail.matched_buys.length // Cantidad de lotes casados
     };
   });
 

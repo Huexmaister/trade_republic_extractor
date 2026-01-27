@@ -16,24 +16,27 @@ function applyTabContentStyles(contentElement, isActive) {
   contentElement.className = `${TAB_CONTENT_BASE_CLASSES} ${isActive ? '' : 'hidden'}`;
   contentElement.dataset.active = isActive ? 'true' : 'false';
 }
-function createTabNavigationWithTrading(configOrCash, mmfComponent, tradingComponent) {
+
+function createTabNavigationWithTrading(configOrCash, mmfComponent, tradingComponent, salesComponent) {
   const isConfigObject = configOrCash && typeof configOrCash === 'object' && !Array.isArray(configOrCash) && !configOrCash.nodeType;
   const {
     cash,
     charts,
     mmf,
     trading,
+    sales,
     support,
     onChartsActivate
   } = isConfigObject
     ? configOrCash
-    : { cash: configOrCash, mmf: mmfComponent, trading: tradingComponent };
+    : { cash: configOrCash, mmf: mmfComponent, trading: tradingComponent, sales: salesComponent };
 
   const tabDefinitions = [
     { label: 'Transacciones de Efectivo', content: cash },
     { label: 'Gráficos', content: charts, onActivate: onChartsActivate },
     { label: 'Fondos Monetarios', content: mmf },
     { label: 'Trading P&L (Beta)', content: trading },
+    { label: 'Desglose de Ventas', content: sales },
     { label: 'Resumen de Resultados', content: support }
   ].filter(def => def && def.content);
 
@@ -95,6 +98,123 @@ function createTabNavigationWithTrading(configOrCash, mmfComponent, tradingCompo
 
 function createTabNavigation(cashComponent, mmfComponent) {
   return createTabNavigationWithTrading({ cash: cashComponent, mmf: mmfComponent });
+}
+
+function renderSalesComponent(salesData) {
+  const container = document.createElement('div');
+  container.className = 'space-y-4';
+
+  if (!salesData || salesData.length === 0) {
+    container.innerHTML = '<div class="text-slate-600 italic">No hay ventas registradas para mostrar el desglose.</div>';
+    return container;
+  }
+
+  salesData.forEach(sale => {
+    const details = document.createElement('details');
+    details.className = 'group rounded-lg border border-slate-200 bg-white shadow-sm open:ring-1 open:ring-slate-200 transition-all';
+
+    const summary = document.createElement('summary');
+    summary.className = 'flex cursor-pointer items-center justify-between p-4 font-medium text-slate-900 hover:bg-slate-50 focus:outline-none select-none';
+
+    const isProfit = sale.net_profit >= 0;
+    const profitClass = isProfit ? 'text-emerald-600' : 'text-red-600';
+    const profitSign = isProfit ? '+' : '';
+
+    summary.innerHTML = `
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 overflow-hidden">
+        <span class="font-semibold truncate" title="${sale.active_name}">${sale.active_name}</span>
+        <span class="text-xs text-slate-500 font-normal shrink-0">${sale.active_isin}</span>
+      </div>
+      <div class="flex items-center gap-4 shrink-0 ml-2">
+        <span class="text-sm text-slate-600 hidden sm:inline">${sale.sell_date}</span>
+        <span class="${profitClass} font-bold whitespace-nowrap">${profitSign}${sale.net_profit.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+        <i data-feather="chevron-down" class="h-4 w-4 text-slate-400 transition-transform duration-200 group-open:rotate-180"></i>
+      </div>
+    `;
+
+    const content = document.createElement('div');
+    content.className = 'border-t border-slate-100 p-4 text-sm text-slate-700';
+
+    content.innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-2">
+          <h4 class="font-semibold text-slate-900 border-b border-slate-100 pb-1">Operación de Venta</h4>
+          <div class="grid grid-cols-2 gap-y-1 text-xs sm:text-sm">
+            <span class="text-slate-500">Cantidad:</span>
+            <span class="text-right font-mono">${sale.sell_operation.qty.toLocaleString('es-ES', { maximumFractionDigits: 6 })}</span>
+
+            <span class="text-slate-500">Precio Venta:</span>
+            <span class="text-right font-mono">${sale.sell_operation.sell_price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 })}</span>
+
+            <span class="text-slate-500">Importe Bruto:</span>
+            <span class="text-right font-mono">${sale.sell_operation.bruto.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+
+            <span class="text-slate-500">Importe Neto (Recibido):</span>
+            <span class="text-right font-mono font-medium text-slate-900">${sale.sell_operation.amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="font-semibold text-slate-900 border-b border-slate-100 pb-1">Resultado</h4>
+          <div class="grid grid-cols-2 gap-y-1 text-xs sm:text-sm">
+            <span class="text-slate-500">Beneficio Bruto:</span>
+            <span class="text-right font-mono">${sale.gross_profit.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+
+            <span class="text-slate-500">Comisiones:</span>
+            <span class="text-right font-mono text-red-500">-${sale.comissions.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+
+            <span class="text-slate-500">Impuestos:</span>
+            <span class="text-right font-mono text-red-500">-${sale.taxes.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+
+            <span class="text-slate-500 font-semibold">Beneficio Neto:</span>
+            <span class="text-right font-mono font-bold ${profitClass}">${profitSign}${sale.net_profit.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <h4 class="font-semibold text-slate-900 border-b border-slate-100 pb-2 mb-2">Lotes de Compra Asignados (FIFO)</h4>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="text-slate-500 font-medium bg-slate-50">
+              <tr>
+                <th class="px-2 py-1 rounded-l">Fecha Compra</th>
+                <th class="px-2 py-1 text-right">Cantidad</th>
+                <th class="px-2 py-1 text-right">Precio Compra</th>
+                <th class="px-2 py-1 text-right">Coste Total</th>
+                <th class="px-2 py-1 text-right">B. Bruto</th>
+                <th class="px-2 py-1 text-right">Impuestos</th>
+                <th class="px-2 py-1 text-right rounded-r">B. Neto</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50">
+              ${sale.matched_buys.map(buy => {
+                const isBatchProfit = buy.batch_net_profit >= 0;
+                const batchProfitClass = isBatchProfit ? 'text-emerald-600' : 'text-red-600';
+
+                return `
+                <tr>
+                  <td class="px-2 py-1">${buy.buy_operation.str_date}</td>
+                  <td class="px-2 py-1 text-right font-mono">${buy.matched_qty.toLocaleString('es-ES', { maximumFractionDigits: 6 })}</td>
+                  <td class="px-2 py-1 text-right font-mono">${buy.buy_price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 })}</td>
+                  <td class="px-2 py-1 text-right font-mono">${(buy.matched_qty * buy.buy_price).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
+                  <td class="px-2 py-1 text-right font-mono">${buy.batch_gross_profit.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
+                  <td class="px-2 py-1 text-right font-mono text-red-500">-${buy.batch_taxes.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
+                  <td class="px-2 py-1 text-right font-mono font-semibold ${batchProfitClass}">${buy.batch_net_profit.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
+                </tr>
+              `}).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    details.appendChild(summary);
+    details.appendChild(content);
+    container.appendChild(details);
+  });
+
+  return container;
 }
 
 function renderTradingComponent(tradingData, tradingTransactions) {
@@ -200,11 +320,12 @@ function renderTradingComponent(tradingData, tradingTransactions) {
         fecha: tx.fecha_venta,
         activo: tx.activo,
         isin: tx.isin,
-        cantidad: tx.qty_vendida.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 6 }),
-        'venta_neta_€': tx.importe_venta_neto.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
-        'coste_base_€': tx.coste_base.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
-        'resultado_€': tx.resultado_bruto.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
-        estado: tx.es_perdida ? 'Pérdida' : 'Ganancia',
+        ingresado: tx.ingresado.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
+        'beneficio bruto': tx.bruto.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
+        impuestos: tx.impuestos.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
+        comision: tx.comision.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
+        'beneficio neto': tx.neto.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
+        lotes: tx.lotes,
         _isLoss: tx.es_perdida // Flag for styling
       }));
       container.appendChild(makeTable('Ganancias y Pérdidas Realizadas (FIFO)', realizedTableData));

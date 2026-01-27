@@ -97,7 +97,16 @@ La herramienta más potente para el cálculo fiscal y análisis de rentabilidad.
     *   **Descargar FIFO (JSON):** Genera el archivo `operaciones_realizadas_fifo.json`. Contiene el detalle de cada venta, incluyendo el **% de ganancia neta** por operación, impuestos estimados y comisiones.
     *   **Descargar Ingresos (JSON):** Genera el archivo `ingresos_dividendos_intereses.json`. Agrupa tus ingresos pasivos por año y mes, categorizados claramente en **"Dividendos"**, **"Interés"** y **"Saveback"**.
 
-### 5. Resumen de Resultados
+### 5. Desglose de Ventas
+Una vista detallada y amigable de cada operación de venta realizada.
+*   **Qué ves:** Un listado de acordeones desplegables para cada venta.
+*   **Resumen:** De un vistazo ves el activo, la fecha y el beneficio neto (en verde o rojo).
+*   **Detalle:** Al desplegar, accedes a toda la información de la operación:
+    *   **Operación de Venta:** Cantidad, precio de venta, importe bruto y neto.
+    *   **Resultado:** Desglose de beneficio bruto, comisiones, impuestos y beneficio neto final.
+    *   **Lotes de Compra (FIFO):** Una tabla que muestra exactamente qué compras anteriores se utilizaron para calcular el coste de esta venta (fecha, cantidad y precio de compra de cada lote).
+
+### 6. Resumen de Resultados
 Una vista final de auditoría.
 *   **Qué ves:** Un resumen del número total de transacciones procesadas y alertas sobre posibles inconsistencias en los saldos (si las hubiera).
 

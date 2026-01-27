@@ -155,6 +155,7 @@ async function runAnalysis() {
     let cashTabComponent = null;
     let mmfTabComponent = null;
     let tradingTabComponent = null;
+    let salesTabComponent = null;
 
     if (cashDisplay.length || interestDisplay.length || tradingTransactions.length) {
       const statsEl = document.createElement('div');
@@ -171,6 +172,14 @@ async function runAnalysis() {
       // Let's be permissive: if we have cash transactions, we show the trading tab so the user can access the FIFO button.
       if (cashDisplay.length > 0) {
          tradingTabComponent = renderTradingComponent(tradingData || { pnlSummary: [], totalInvested: 0, totalRealized: 0, totalNetCashFlow: 0, openPositions: 0, closedPositions: 0, totalTrades: 0, totalVolume: 0 }, tradingTransactions);
+
+         // Calculate FIFO data for sales component
+         if (typeof calculateTaxReport === 'function') {
+           const fifoData = calculateTaxReport(window.currentCashDisplay);
+           if (fifoData && fifoData.fifoJson) {
+             salesTabComponent = renderSalesComponent(fifoData.fifoJson);
+           }
+         }
       }
 
       const supportComp = renderSupportComponent({
@@ -180,12 +189,13 @@ async function runAnalysis() {
         failedChecks
       });
 
-      if (cashTabComponent || chartsElement || mmfTabComponent || tradingTabComponent || supportComp) {
+      if (cashTabComponent || chartsElement || mmfTabComponent || tradingTabComponent || salesTabComponent || supportComp) {
         const tabs = createTabNavigationWithTrading({
           cash: cashTabComponent,
           charts: chartsElement,
           mmf: mmfTabComponent,
           trading: tradingTabComponent,
+          sales: salesTabComponent,
           support: supportComp,
           onChartsActivate: chartsBundle ? () => {
             if (!chartsRendered) {

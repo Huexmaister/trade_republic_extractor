@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade Republic PDF Extractor & Portfolio Analyzer</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+            line-height: 1.6;
+            color: #24292e;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #ffffff;
+        }
+        h1, h2, h3 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+        h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        h3 { font-size: 1.25em; }
+        p { margin-top: 0; margin-bottom: 16px; }
+        code {
+            padding: 0.2em 0.4em;
+            margin: 0;
+            font-size: 85%;
+            background-color: #f6f8fa;
+            border-radius: 3px;
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+        }
+        pre {
+            padding: 16px;
+            overflow: auto;
+            font-size: 85%;
+            line-height: 1.45;
+            background-color: #f6f8fa;
+            border-radius: 3px;
+        }
+        pre code {
+            display: inline;
+            padding: 0;
+            margin: 0;
+            overflow: visible;
+            line-height: inherit;
+            word-wrap: normal;
+            background-color: transparent;
+            border: 0;
+        }
+        ul, ol { padding-left: 2em; margin-top: 0; margin-bottom: 16px; }
+        li { margin: 0.25em 0; }
+        img { max-width: 100%; box-sizing: border-box; }
+        hr {
+            height: 0.25em;
+            padding: 0;
+            margin: 24px 0;
+            background-color: #e1e4e8;
+            border: 0;
+        }
+        blockquote {
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+            margin: 0 0 16px 0;
+        }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<h1>Trade Republic PDF Extractor & Portfolio Analyzer</h1>
+
+<p>Una herramienta moderna, segura y de código abierto para extraer, analizar y visualizar tus transacciones de Trade Republic directamente desde los extractos oficiales en PDF.</p>
+
+<p><img src="https://via.placeholder.com/800x400?text=Dashboard+Preview" alt="Dashboard Preview"></p>
+
+<h2>✨ Características Principales</h2>
+
+<ul>
+<li><strong>Privacidad Total:</strong> Todo el procesamiento se realiza localmente en tu navegador. Tus datos financieros nunca salen de tu ordenador.</li>
+<li><strong>Análisis de Portfolio (FIFO):</strong> Cálculo automático de ganancias y pérdidas históricas utilizando el método FIFO (First-In, First-Out).</li>
+<li><strong>Dashboard Interactivo:</strong> Visualiza tu rendimiento mensual, distribución de beneficios por activo y métricas clave (Ganancia Total, Pérdida Total, Neto).</li>
+<li><strong>Exportación Flexible:</strong> Descarga tus datos en formatos JSON, CSV o Excel para usarlos en otras herramientas o para tu declaración de impuestos.</li>
+<li><strong>Soporte Multi-idioma:</strong> Detecta y procesa extractos en español, inglés, alemán e italiano.</li>
+</ul>
+
+<hr>
+
+<h2>🚀 Cómo Empezar</h2>
+
+<h3>Paso 1: Obtener tu Extracto de Cuenta (PDF)</h3>
+
+<p>Para usar esta herramienta, necesitas el extracto de cuenta oficial (Account Statement) que proporciona Trade Republic. Sigue estos pasos para obtenerlo:</p>
+
+<ol>
+<li>Abre la aplicación de <strong>Trade Republic</strong> en tu móvil.</li>
+<li>Ve a tu <strong>Perfil</strong> (icono de persona en la esquina superior izquierda).</li>
+<li>Desplázate hacia abajo hasta la sección <strong>Actividad</strong> o <strong>Documentos</strong>.</li>
+<li>Busca <strong>"Extracto de Cuenta"</strong> (Account Statement) o "Saldo de Cuenta".</li>
+<li>Selecciona el rango de fechas que desees (se recomienda descargar el historial completo para un cálculo FIFO preciso).</li>
+<li>Pulsa en <strong>Descargar</strong> o <strong>Compartir</strong>.</li>
+<li>Envía el archivo PDF a tu correo electrónico (Gmail, Outlook, etc.) o guárdalo en tu nube (Google Drive, iCloud) para acceder a él desde tu ordenador.</li>
+</ol>
+
+<h3>Paso 2: Ejecutar la Aplicación</h3>
+
+<p>Para facilitar el uso, hemos incluido scripts automáticos que inician un servidor local seguro y abren la aplicación en tu navegador. Los logs del servidor se han ocultado para mantener la consola limpia.</p>
+
+<h4>En Windows 🪟</h4>
+<ol>
+<li>Busca el archivo <code>run.bat</code> en la carpeta del proyecto.</li>
+<li>Haz doble clic sobre él.</li>
+<li>Se abrirá una ventana de consola (sin logs molestos) y automáticamente se lanzará tu navegador en modo incógnito en <code>http://localhost:9000</code>.</li>
+<li>Para cerrar la aplicación, simplemente vuelve a la ventana de la consola y pulsa cualquier tecla.</li>
+</ol>
+
+<h4>En macOS 🍎</h4>
+<ol>
+<li>Busca el archivo <code>run.command</code> en la carpeta del proyecto.</li>
+<li>Haz doble clic sobre él.</li>
+<li>Se abrirá una terminal y lanzará tu navegador predeterminado en modo incógnito.</li>
+<li>Para salir, pulsa cualquier tecla en la terminal.</li>
+</ol>
+
+<h4>En Linux 🐧</h4>
+<ol>
+<li>Abre tu terminal y navega hasta la carpeta del proyecto.</li>
+<li>Ejecuta el script con el comando:
+<pre><code>./run.sh
+</code></pre>
+<em>(Si tienes problemas de permisos, ejecuta primero <code>chmod +x run.sh</code>)</em></li>
+<li>El servidor se iniciará y abrirá tu navegador.</li>
+</ol>
+
+<h3>Paso 3: Cargar y Analizar</h3>
+
+<ol>
+<li>Una vez abierta la aplicación en el navegador, arrastra y suelta tu archivo PDF en el área designada o haz clic para seleccionarlo.</li>
+<li>Espera unos segundos mientras la herramienta procesa el documento.</li>
+<li>¡Listo! Navega por las pestañas para ver tus transacciones, gráficos y reportes fiscales.</li>
+</ol>
+
+<hr>
+
+<h2>📊 Funcionalidades Detalladas</h2>
+
+<p>La aplicación organiza la información en varias pestañas para facilitar su análisis:</p>
+
+<h3>1. Transacciones de Efectivo</h3>
+<p>Esta es la vista principal de tus movimientos bancarios.</p>
+<ul>
+<li><strong>Qué ves:</strong> Una tabla detallada con cada movimiento de dinero (entradas y salidas).</li>
+<li><strong>Columnas:</strong> Fecha, Tipo de operación, Descripción/Nombre, Cantidad, Dinero que entra (Incoming) y Dinero que sale (Outgoing).</li>
+<li><strong>Botones de Exportación:</strong>
+<ul>
+<li><strong>CSV / Excel:</strong> Descarga la tabla tal cual la ves para abrirla en Excel o Google Sheets.</li>
+<li><strong>Exportar Extracto (JSON):</strong> Genera un archivo <code>extracto.json</code> con todos los datos crudos procesados del PDF. Ideal para copias de seguridad o análisis programático.</li>
+</ul>
+</li>
+</ul>
+
+<h3>2. Gráficos</h3>
+<p>Un dashboard visual para entender tu rendimiento global.</p>
+<ul>
+<li><strong>Qué ves:</strong>
+<ul>
+<li><strong>KPIs:</strong> Tarjetas con tu Ganancia Total, Pérdida Total, Beneficio Neto y Promedio Mensual.</li>
+<li><strong>Rendimiento Mensual:</strong> Un gráfico de barras que muestra cuánto ganaste o perdiste mes a mes.</li>
+<li><strong>Distribución de Beneficios:</strong> Un gráfico circular (Donut) que te dice qué activos (acciones/ETFs) han contribuido más a tus ganancias.</li>
+</ul>
+</li>
+</ul>
+
+<h3>3. Fondos Monetarios</h3>
+<p>Una sección dedicada a los movimientos de liquidez.</p>
+<ul>
+<li><strong>Qué ves:</strong> Transacciones relacionadas con intereses generados por el efectivo no invertido o fondos del mercado monetario.</li>
+</ul>
+
+<h3>4. Trading P&L (Beta)</h3>
+<p>La herramienta más potente para el cálculo fiscal y análisis de rentabilidad.</p>
+<ul>
+<li><strong>Nota Importante:</strong> Esta sección está en Beta. Los cálculos se realizan mediante ingeniería inversa de los extractos (Neto -> Bruto) asumiendo las tasas impositivas estándar.</li>
+<li><strong>Qué ves:</strong>
+<ul>
+<li><strong>Posiciones Activas:</strong> Una tabla con las acciones que aún tienes en cartera, calculando su coste medio de adquisición y cantidad total.</li>
+<li><strong>Ganancias y Pérdidas Históricas (FIFO):</strong> Una tabla con cada venta realizada, desglosando:
+<ul>
+<li><em>Venta Neta:</em> Lo que recibiste en el banco.</li>
+<li><em>Coste Base:</em> Cuánto te costaron esas acciones originalmente (según FIFO).</li>
+<li><em>Resultado:</em> Tu ganancia o pérdida real antes de impuestos.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>Botones de Descarga:</strong>
+<ul>
+<li><strong>Descargar FIFO (JSON):</strong> Genera el archivo <code>operaciones_realizadas_fifo.json</code>. Contiene el detalle de cada venta, incluyendo el <strong>% de ganancia neta</strong> por operación, impuestos estimados y comisiones.</li>
+<li><strong>Descargar Ingresos (JSON):</strong> Genera el archivo <code>ingresos_dividendos_intereses.json</code>. Agrupa tus ingresos pasivos por año y mes, categorizados claramente en <strong>"Dividendos"</strong>, <strong>"Interés"</strong> y <strong>"Saveback"</strong>.</li>
+</ul>
+</li>
+</ul>
+
+<h3>5. Resumen de Resultados</h3>
+<p>Una vista final de auditoría.</p>
+<ul>
+<li><strong>Qué ves:</strong> Un resumen del número total de transacciones procesadas y alertas sobre posibles inconsistencias en los saldos (si las hubiera).</li>
+</ul>
+
+<hr>
+
+<h2>🛠️ Tecnologías Utilizadas</h2>
+
+<ul>
+<li><strong>PDF.js:</strong> Para la lectura y extracción de texto de los archivos PDF.</li>
+<li><strong>Chart.js:</strong> Para la generación de gráficos interactivos y visualmente atractivos.</li>
+<li><strong>Tailwind CSS:</strong> Para un diseño moderno, limpio y responsivo.</li>
+<li><strong>JavaScript (ES6+):</strong> Lógica de procesamiento de datos y cálculo financiero.</li>
+</ul>
+
+<hr>
+
+<h2>❤️ Agradecimientos y Créditos</h2>
+
+<p>Este proyecto se ha construido sobre la base de la comunidad de código abierto. Un agradecimiento especial a:</p>
+
+<ul>
+<li><strong><a href="https://github.com/jcmpagel/Trade-Republic-CSV-Excel">jcmpagel</a></strong>: Por su excelente trabajo pionero en la lógica de extracción de datos de Trade Republic, que ha servido de inspiración y base para partes del parser de esta herramienta.</li>
+</ul>
+
+<hr>
+
+<h2>⚠️ Aviso Legal</h2>
+
+<p>Esta herramienta se proporciona "tal cual" y es de código abierto. Aunque nos esforzamos por garantizar la precisión de los cálculos, <strong>no somos asesores financieros ni fiscales</strong>.</p>
+
+<ul>
+<li><strong>Margen de Error:</strong> Los cálculos de Trading P&L se basan en la ingeniería inversa de los extractos y pueden tener un margen de error debido a redondeos o comisiones complejas.</li>
+<li><strong>Impuestos:</strong> Se presupone que el cálculo de impuestos realizado por la App de Trade Republic es correcto. Si el extracto original contiene errores, esta herramienta los reflejará.</li>
+<li><strong>Verificación:</strong> Siempre verifica los resultados con tus propios registros y documentos oficiales antes de presentar cualquier declaración fiscal.</li>
+</ul>
+
+<hr>
+
+<p><em>Desarrollado con pasión para la comunidad inversora.</em></p>
+
+</body>
+</html>
