@@ -153,9 +153,9 @@ async function runAnalysis() {
     const chartConfigs = chartsBundle ? chartsBundle.charts : [];
 
     let cashTabComponent = null;
-    let mmfTabComponent = null;
     let tradingTabComponent = null;
     let salesTabComponent = null;
+    let incomeTabComponent = null; // New component for income
 
     if (cashDisplay.length || interestDisplay.length || tradingTransactions.length) {
       const statsEl = document.createElement('div');
@@ -163,21 +163,18 @@ async function runAnalysis() {
       $("out").appendChild(statsEl);
 
       cashTabComponent = cashDisplay.length ? renderComponent('Transacciones de Efectivo', cashDisplay, 'cash', { failedChecks }) : null;
-      mmfTabComponent = interestDisplay.length ? renderComponent('Fondos Monetarios (MMF)', interestDisplay, 'interest') : null;
 
-      // Always try to render trading component if we have data, or if we want to show the tab
-      // Even if tradingTransactions is empty, we might want to show the tab if we have cash transactions that *could* be trades but weren't parsed as such,
-      // OR simply to allow the user to see the FIFO button which uses the raw cash data.
-      // However, the user specifically asked for the tab to appear.
-      // Let's be permissive: if we have cash transactions, we show the trading tab so the user can access the FIFO button.
       if (cashDisplay.length > 0) {
          tradingTabComponent = renderTradingComponent(tradingData || { pnlSummary: [], totalInvested: 0, totalRealized: 0, totalNetCashFlow: 0, openPositions: 0, closedPositions: 0, totalTrades: 0, totalVolume: 0 }, tradingTransactions);
 
-         // Calculate FIFO data for sales component
+         // Calculate FIFO data for sales and income components
          if (typeof calculateTaxReport === 'function') {
            const fifoData = calculateTaxReport(window.currentCashDisplay);
            if (fifoData && fifoData.fifoJson) {
              salesTabComponent = renderSalesComponent(fifoData.fifoJson);
+           }
+           if (fifoData && fifoData.incomeJson) {
+             incomeTabComponent = renderIncomeComponent(fifoData.incomeJson);
            }
          }
       }
@@ -189,13 +186,13 @@ async function runAnalysis() {
         failedChecks
       });
 
-      if (cashTabComponent || chartsElement || mmfTabComponent || tradingTabComponent || salesTabComponent || supportComp) {
+      if (chartsElement || salesTabComponent || incomeTabComponent || tradingTabComponent || cashTabComponent || supportComp) {
         const tabs = createTabNavigationWithTrading({
-          cash: cashTabComponent,
           charts: chartsElement,
-          mmf: mmfTabComponent,
-          trading: tradingTabComponent,
           sales: salesTabComponent,
+          income: incomeTabComponent,
+          trading: tradingTabComponent,
+          cash: cashTabComponent,
           support: supportComp,
           onChartsActivate: chartsBundle ? () => {
             if (!chartsRendered) {

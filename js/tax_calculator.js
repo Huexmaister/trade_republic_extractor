@@ -20,9 +20,16 @@ function calculateTaxReport(transactions) {
     return isin.startsWith("IE") && dateObj >= TAX_DATE_LIMIT;
   };
 
-  // Calcula comisión: 0 si es "Savings" (Plan de Inversión), 1 en otro caso
+  // Determina si es Savings Plan
+  const isSavingsPlan = (description) => {
+    if (!description) return false;
+    const desc = description.toLowerCase();
+    return desc.includes("savings plan") || desc.includes("sparplan");
+  };
+
+  // Calcula comisión: 0 si es "Savings Plan", 1 en otro caso.
   const calculateCommission = (description) => {
-    if (description && description.includes("Savings")) return 0.0;
+    if (isSavingsPlan(description)) return 0.0;
     return 1.0;
   };
 
@@ -98,6 +105,7 @@ function calculateTaxReport(transactions) {
       // --- COMPRA (Outgoing > 0) ---
       if (tx.out > 0) {
         const commission = calculateCommission(tx.desc);
+        const isSavings = isSavingsPlan(tx.desc);
         // Precio Compra = (Amount - Commission) / Qty
         // Amount aquí es tx.out (lo que salió de la cuenta)
         const buyPrice = (tx.out - commission) / tx.qty;
@@ -107,15 +115,16 @@ function calculateTaxReport(transactions) {
           qty: tx.qty,
           buyPrice: buyPrice,
           commission: commission,
+          isSavings: isSavings, // Guardamos si es savings para la lógica de venta
           originalAmount: tx.out,
-          commissionCharged: false // Flag to track if commission has been charged
+          commissionCharged: false
         });
       }
 
       // --- VENTA (Incoming > 0) ---
       else if (tx.inc > 0) {
         let qtyToSell = tx.qty;
-        const commission = 1.0; // Venta siempre 1€ (según lógica Python)
+        const commission = 1.0; // Venta siempre 1€
 
         // Variables para acumular datos de esta venta
         let currentSaleGrossProfit = 0.0;
@@ -128,10 +137,12 @@ function calculateTaxReport(transactions) {
           const availableQty = buyEntry.qty;
           const matchedQty = Math.min(qtyToSell, availableQty);
 
-          // Calculate commission for this match (User logic: full commission on first touch)
-          let matchedCommission = 0;
-          if (!buyEntry.commissionCharged && buyEntry.commission > 0) {
-             matchedCommission = buyEntry.commission;
+          // Lógica solicitada: 1€ por cada matched_buy que no sea savings.
+          // Independientemente de si se ha cobrado antes o no (según la fórmula "1 * todas las matched_buys").
+          let matchedCommission = buyEntry.isSavings ? 0.0 : 1.0;
+
+          // Marcamos como cobrada para control interno, aunque la fórmula de reporte usa matchedCommission fijo
+          if (!buyEntry.commissionCharged && matchedCommission > 0) {
              buyEntry.commissionCharged = true;
           }
 
@@ -140,7 +151,8 @@ function calculateTaxReport(transactions) {
             buy_date: buyEntry.date,
             matched_qty: matchedQty,
             buy_price: buyEntry.buyPrice,
-            commission: matchedCommission
+            commission: matchedCommission, // Aquí guardamos 1 o 0 según si es savings
+            isSavings: buyEntry.isSavings
           });
 
           // Acumular coste de compra de la parte casada
@@ -188,13 +200,12 @@ function calculateTaxReport(transactions) {
 
         // Calcular Beneficios
         // Gross Profit = (Precio Venta - Precio Compra) * Cantidad Casada
-        // Lo calculamos sumando los tramos
         matchedBuys.forEach(match => {
           const profit = (sellPrice - match.buy_price) * match.matched_qty;
           currentSaleGrossProfit += profit;
         });
 
-        // Sum of buy commissions (excluding savings plans which are 0 anyway)
+        // Sum of buy commissions (1 per matched buy non-savings) + sell commission (1)
         const totalBuyCommissions = matchedBuys.reduce((sum, m) => sum + m.commission, 0);
         const totalCommissions = commission + totalBuyCommissions;
 
@@ -209,7 +220,7 @@ function calculateTaxReport(transactions) {
           const batchGross = (sellPrice - m.buy_price) * m.matched_qty;
 
           // 2. Comisiones imputables al lote
-          // = Comisión de compra específica de este lote + Parte proporcional de la comisión de venta
+          // = Comisión de compra (1€ si no es savings) + Parte proporcional de la comisión de venta
           const partSellComm = commission * ratio;
           const batchComm = m.commission + partSellComm;
 
@@ -252,7 +263,7 @@ function calculateTaxReport(transactions) {
           },
           gross_profit: round2(currentSaleGrossProfit),
           net_profit: round2(netProfit),
-          comissions: round2(totalCommissions),
+          total_comissions: round2(totalCommissions), // Renamed from "comissions"
           taxes: round2(taxes),
           matched_buys: detailedMatchedBuys
         };
@@ -310,14 +321,14 @@ function calculateTaxReport(transactions) {
       importe_venta_bruto: sellOp.bruto,
       coste_base: round2(costeBase),
       resultado_bruto: detail.gross_profit, // Ganancia/Pérdida bruta
-      comision_estimada: detail.comissions,
+      comision_estimada: detail.total_comissions, // Use renamed field
       impuesto_estimado: detail.taxes,
       es_perdida: detail.gross_profit < 0,
       // New fields for UI
       ingresado: sellOp.amount,
       bruto: detail.gross_profit,
       impuestos: detail.taxes,
-      comision: detail.comissions,
+      comision: detail.total_comissions, // Use renamed field
       neto: detail.net_profit,
       lotes: detail.matched_buys.length // Cantidad de lotes casados
     };

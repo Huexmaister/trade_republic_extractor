@@ -17,27 +17,25 @@ function applyTabContentStyles(contentElement, isActive) {
   contentElement.dataset.active = isActive ? 'true' : 'false';
 }
 
-function createTabNavigationWithTrading(configOrCash, mmfComponent, tradingComponent, salesComponent) {
-  const isConfigObject = configOrCash && typeof configOrCash === 'object' && !Array.isArray(configOrCash) && !configOrCash.nodeType;
+function createTabNavigationWithTrading(config) {
   const {
     cash,
     charts,
-    mmf,
-    trading,
     sales,
+    income, // New income component
+    trading,
     support,
     onChartsActivate
-  } = isConfigObject
-    ? configOrCash
-    : { cash: configOrCash, mmf: mmfComponent, trading: tradingComponent, sales: salesComponent };
+  } = config;
 
+  // New tab order
   const tabDefinitions = [
-    { label: 'Transacciones de Efectivo', content: cash },
-    { label: 'Gráficos', content: charts, onActivate: onChartsActivate },
-    { label: 'Fondos Monetarios', content: mmf },
-    { label: 'Trading P&L (Beta)', content: trading },
-    { label: 'Desglose de Ventas', content: sales },
-    { label: 'Resumen de Resultados', content: support }
+    { id: 'charts', label: 'Gráficos', content: charts, onActivate: onChartsActivate },
+    { id: 'sales', label: 'Desglose de Ventas', content: sales },
+    { id: 'income', label: 'Ingresos (Dividendos/Intereses)', content: income },
+    { id: 'trading', label: 'Trading P&L (Beta)', content: trading },
+    { id: 'cash', label: 'Transacciones de Efectivo', content: cash },
+    { id: 'support', label: 'Resumen de Resultados', content: support }
   ].filter(def => def && def.content);
 
   if (tabDefinitions.length === 0) return null;
@@ -52,19 +50,20 @@ function createTabNavigationWithTrading(configOrCash, mmfComponent, tradingCompo
 
   const components = [];
 
-  const registerTab = ({ label, content, onActivate }) => {
-    const isFirst = components.length === 0;
+  const registerTab = ({ id, label, content, onActivate }) => {
+    // Set "Gráficos" as the default active tab
+    const isActive = id === 'charts';
     const tab = document.createElement('button');
     tab.type = 'button';
     tab.textContent = label;
     tab.dataset.tabRole = 'navigation';
     tab.dataset.tabLabel = label;
-    applyTabStyles(tab, isFirst);
+    applyTabStyles(tab, isActive);
     tabs.appendChild(tab);
 
     const contentDiv = document.createElement('div');
     contentDiv.classList.add('space-y-6');
-    applyTabContentStyles(contentDiv, isFirst);
+    applyTabContentStyles(contentDiv, isActive);
     contentDiv.dataset.tabRole = 'panel';
     contentDiv.dataset.tabLabel = label;
     contentDiv.appendChild(content);
@@ -73,7 +72,7 @@ function createTabNavigationWithTrading(configOrCash, mmfComponent, tradingCompo
     const entry = { tab, contentDiv, onActivate, activated: false };
     components.push(entry);
 
-    if (isFirst && onActivate && !entry.activated) {
+    if (isActive && onActivate && !entry.activated) {
       entry.activated = true;
       setTimeout(onActivate, 0);
     }
@@ -94,10 +93,6 @@ function createTabNavigationWithTrading(configOrCash, mmfComponent, tradingCompo
   tabDefinitions.forEach(registerTab);
 
   return container;
-}
-
-function createTabNavigation(cashComponent, mmfComponent) {
-  return createTabNavigationWithTrading({ cash: cashComponent, mmf: mmfComponent });
 }
 
 function renderSalesComponent(salesData) {
@@ -160,8 +155,8 @@ function renderSalesComponent(salesData) {
             <span class="text-slate-500">Beneficio Bruto:</span>
             <span class="text-right font-mono">${sale.gross_profit.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
 
-            <span class="text-slate-500">Comisiones:</span>
-            <span class="text-right font-mono text-red-500">-${sale.comissions.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+            <span class="text-slate-500">Comisiones Totales:</span>
+            <span class="text-right font-mono text-red-500">-${sale.total_comissions.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
 
             <span class="text-slate-500">Impuestos:</span>
             <span class="text-right font-mono text-red-500">-${sale.taxes.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
@@ -216,6 +211,75 @@ function renderSalesComponent(salesData) {
 
   return container;
 }
+
+// New component for rendering income by month
+function renderIncomeComponent(incomeData) {
+  const container = document.createElement('div');
+  container.className = 'space-y-4';
+
+  if (!incomeData || Object.keys(incomeData).length === 0) {
+    container.innerHTML = '<div class="text-slate-600 italic">No hay ingresos (dividendos, intereses) registrados.</div>';
+    return container;
+  }
+
+  // Sort years and months descending
+  const sortedYears = Object.keys(incomeData).sort((a, b) => b - a);
+
+  sortedYears.forEach(year => {
+    const sortedMonths = Object.keys(incomeData[year]).sort((a, b) => b - a);
+
+    sortedMonths.forEach(month => {
+      const monthData = incomeData[year][month];
+      const monthLabel = `${year}-${String(month).padStart(2, '0')}`;
+
+      const details = document.createElement('details');
+      details.className = 'group rounded-lg border border-slate-200 bg-white shadow-sm open:ring-1 open:ring-slate-200 transition-all';
+
+      const summary = document.createElement('summary');
+      summary.className = 'flex cursor-pointer items-center justify-between p-4 font-medium text-slate-900 hover:bg-slate-50 focus:outline-none select-none';
+
+      summary.innerHTML = `
+        <div class="flex items-center gap-4">
+          <span class="font-semibold">${monthLabel}</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="font-bold text-emerald-600 whitespace-nowrap">+${monthData.Total.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+          <i data-feather="chevron-down" class="h-4 w-4 text-slate-400 transition-transform duration-200 group-open:rotate-180"></i>
+        </div>
+      `;
+
+      const content = document.createElement('div');
+      content.className = 'border-t border-slate-100 p-4 text-sm text-slate-700';
+
+      const incomeRows = [
+        { label: 'Dividendos', value: monthData.Dividendos, icon: 'dollar-sign' },
+        { label: 'Intereses', value: monthData.Interés, icon: 'percent' },
+        { label: 'Saveback', value: monthData.Saveback, icon: 'gift' }
+      ].filter(row => row.value > 0);
+
+      content.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          ${incomeRows.map(row => `
+            <div class="flex items-center justify-between rounded-md bg-slate-50 p-3">
+              <span class="flex items-center gap-2 text-slate-600">
+                <i data-feather="${row.icon}" class="h-4 w-4"></i>
+                ${row.label}
+              </span>
+              <span class="font-mono font-medium text-slate-900">${row.value.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      details.appendChild(summary);
+      details.appendChild(content);
+      container.appendChild(details);
+    });
+  });
+
+  return container;
+}
+
 
 function renderTradingComponent(tradingData, tradingTransactions) {
   const container = document.createElement('div');
