@@ -22,6 +22,7 @@ function createTabNavigationWithTrading(config) {
     cash,
     charts,
     sales,
+    salesByProduct, // New component
     income, // New income component
     trading,
     support,
@@ -32,6 +33,7 @@ function createTabNavigationWithTrading(config) {
   const tabDefinitions = [
     { id: 'charts', label: 'Gráficos', content: charts, onActivate: onChartsActivate },
     { id: 'sales', label: 'Desglose de Ventas', content: sales },
+    { id: 'salesByProduct', label: 'Desglose por Producto', content: salesByProduct },
     { id: 'income', label: 'Ingresos (Dividendos/Intereses)', content: income },
     { id: 'trading', label: 'Trading P&L (Beta)', content: trading },
     { id: 'cash', label: 'Transacciones de Efectivo', content: cash },
@@ -91,6 +93,58 @@ function createTabNavigationWithTrading(config) {
   };
 
   tabDefinitions.forEach(registerTab);
+
+  return container;
+}
+
+function renderSalesByProductComponent(salesByProductData) {
+  const container = document.createElement('div');
+  container.className = 'space-y-4';
+
+  if (!salesByProductData || salesByProductData.length === 0) {
+    container.innerHTML = '<div class="text-slate-600 italic">No hay ventas registradas para mostrar el desglose por producto.</div>';
+    return container;
+  }
+
+  salesByProductData.forEach(product => {
+    const details = document.createElement('details');
+    details.className = 'group rounded-lg border border-slate-200 bg-white shadow-sm open:ring-1 open:ring-slate-200 transition-all';
+
+    const summary = document.createElement('summary');
+    summary.className = 'flex cursor-pointer items-center justify-between p-4 font-medium text-slate-900 hover:bg-slate-50 focus:outline-none select-none';
+
+    const isProfit = product.total_net_profit >= 0;
+    const profitClass = isProfit ? 'text-emerald-600' : 'text-red-600';
+    const profitSign = isProfit ? '+' : '';
+
+    summary.innerHTML = `
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 overflow-hidden">
+        <span class="font-semibold truncate" title="${product.name}">${product.name}</span>
+        <span class="text-xs text-slate-500 font-normal shrink-0">${product.isin}</span>
+        <span class="text-xs text-slate-400 font-normal shrink-0">(${product.sales.length} ventas)</span>
+      </div>
+      <div class="flex items-center gap-4 shrink-0 ml-2">
+        <div class="flex flex-col items-end text-xs sm:text-sm">
+           <span class="text-slate-500">Impuestos: <span class="text-red-500">-${product.total_taxes.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span></span>
+           <span class="${profitClass} font-bold whitespace-nowrap">Neto: ${profitSign}${product.total_net_profit.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+        </div>
+        <i data-feather="chevron-down" class="h-4 w-4 text-slate-400 transition-transform duration-200 group-open:rotate-180"></i>
+      </div>
+    `;
+
+    const content = document.createElement('div');
+    content.className = 'border-t border-slate-100 p-4 text-sm text-slate-700 space-y-4';
+
+    // Render individual sales for this product using the existing logic
+    const salesContainer = renderSalesComponent(product.sales);
+    // Remove the outer container styling from renderSalesComponent to fit nicely inside
+    salesContainer.className = 'space-y-4 pl-2 border-l-2 border-slate-100';
+
+    content.appendChild(salesContainer);
+    details.appendChild(summary);
+    details.appendChild(content);
+    container.appendChild(details);
+  });
 
   return container;
 }

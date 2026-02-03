@@ -155,6 +155,7 @@ async function runAnalysis() {
     let cashTabComponent = null;
     let tradingTabComponent = null;
     let salesTabComponent = null;
+    let salesByProductComponent = null; // New component
     let incomeTabComponent = null; // New component for income
 
     if (cashDisplay.length || interestDisplay.length || tradingTransactions.length) {
@@ -173,6 +174,9 @@ async function runAnalysis() {
            if (fifoData && fifoData.fifoJson) {
              salesTabComponent = renderSalesComponent(fifoData.fifoJson);
            }
+           if (fifoData && fifoData.salesByProduct) {
+             salesByProductComponent = renderSalesByProductComponent(fifoData.salesByProduct);
+           }
            if (fifoData && fifoData.incomeJson) {
              incomeTabComponent = renderIncomeComponent(fifoData.incomeJson);
            }
@@ -186,10 +190,11 @@ async function runAnalysis() {
         failedChecks
       });
 
-      if (chartsElement || salesTabComponent || incomeTabComponent || tradingTabComponent || cashTabComponent || supportComp) {
+      if (chartsElement || salesTabComponent || salesByProductComponent || incomeTabComponent || tradingTabComponent || cashTabComponent || supportComp) {
         const tabs = createTabNavigationWithTrading({
           charts: chartsElement,
           sales: salesTabComponent,
+          salesByProduct: salesByProductComponent,
           income: incomeTabComponent,
           trading: tradingTabComponent,
           cash: cashTabComponent,

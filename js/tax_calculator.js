@@ -332,12 +332,40 @@ function calculateTaxReport(transactions) {
   // D) Generar incomeJson (agrupado por año/mes)
   const incomeJson = buildNestedIncomeStructure(incomeReport);
 
+  // E) Generar desglose de ventas por producto
+  const salesByProduct = [];
+  const salesByIsin = {};
+
+  allSalesDetails.forEach(sale => {
+    if (!salesByIsin[sale.active_isin]) {
+      salesByIsin[sale.active_isin] = {
+        isin: sale.active_isin,
+        name: sale.active_name,
+        sales: [],
+        total_net_profit: 0,
+        total_taxes: 0
+      };
+    }
+    const product = salesByIsin[sale.active_isin];
+    product.sales.push(sale);
+    product.total_net_profit += sale.net_profit;
+    product.total_taxes += sale.taxes;
+  });
+
+  for (const isin in salesByIsin) {
+    salesByProduct.push(salesByIsin[isin]);
+  }
+
+  // Ordenar por número de ventas descendente
+  salesByProduct.sort((a, b) => b.sales.length - a.sales.length);
+
   return {
     realized: realizedPnL,
     open: openPositions,
     income: incomeReport,
     fifoJson: allSalesDetails, // Este es el JSON detallado que quería el usuario
-    incomeJson: incomeJson
+    incomeJson: incomeJson,
+    salesByProduct: salesByProduct // Nuevo desglose por producto
   };
 }
 
