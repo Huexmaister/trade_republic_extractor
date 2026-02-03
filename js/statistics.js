@@ -67,6 +67,50 @@ function formatEuro(value) {
   return value.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 }
 
+/**
+ * Calcula la cuota teórica del ahorro en España por tramos.
+ * Base imponible del ahorro (Ganancias y Pérdidas patrimoniales compensadas).
+ */
+function calculateSpanishSavingsTax(base) {
+  if (base <= 0) return 0;
+
+  let tax = 0;
+  let remaining = base;
+
+  // Tramo 1: Hasta 6.000€ al 19%
+  const tier1 = Math.min(remaining, 6000);
+  tax += tier1 * 0.19;
+  remaining -= tier1;
+
+  // Tramo 2: Desde 6.000€ hasta 50.000€ al 21%
+  if (remaining > 0) {
+    const tier2 = Math.min(remaining, 44000); // 50k - 6k
+    tax += tier2 * 0.21;
+    remaining -= tier2;
+  }
+
+  // Tramo 3: Desde 50.000€ hasta 200.000€ al 23%
+  if (remaining > 0) {
+    const tier3 = Math.min(remaining, 150000); // 200k - 50k
+    tax += tier3 * 0.23;
+    remaining -= tier3;
+  }
+
+  // Tramo 4: Desde 200.000€ hasta 300.000€ al 27%
+  if (remaining > 0) {
+    const tier4 = Math.min(remaining, 100000); // 300k - 200k
+    tax += tier4 * 0.27;
+    remaining -= tier4;
+  }
+
+  // Tramo 5: Más de 300.000€ al 28%
+  if (remaining > 0) {
+    tax += remaining * 0.28;
+  }
+
+  return tax;
+}
+
 function analyzeTransactions(transactions, typKey = "type") {
   if (!transactions || transactions.length === 0) return [];
   const types = {};
@@ -128,63 +172,123 @@ function createCharts(cash, mmf) {
   const container = document.createElement('div');
   container.className = 'space-y-6';
 
-  // --- 2. Calcular Métricas Globales ---
-  // Total Ganancias Histórico (Suma de resultados positivos)
-  const totalGanancias = fifoData.realized
-      .filter(tx => !tx.es_perdida)
-      .reduce((sum, tx) => sum + tx.resultado_bruto, 0);
+  // --- 2. Agrupar Datos por Año ---
+  const yearlyData = {};
 
-  // Total Pérdidas Histórico (Suma de resultados negativos, valor absoluto)
-  const totalPerdidas = fifoData.realized
-      .filter(tx => tx.es_perdida)
-      .reduce((sum, tx) => sum + Math.abs(tx.resultado_bruto), 0);
-
-  // Beneficio Neto (Ganancias - Pérdidas)
-  const beneficioNeto = totalGanancias - totalPerdidas;
-
-  // Promedio Mensual de Ganancias/Pérdidas
-  // Agrupar por mes primero
-  const monthlyNetMap = new Map();
   fifoData.realized.forEach(tx => {
       const date = new Date(tx.fecha_venta);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      if (!monthlyNetMap.has(key)) monthlyNetMap.set(key, 0);
-      monthlyNetMap.set(key, monthlyNetMap.get(key) + tx.resultado_bruto);
+      const year = date.getFullYear();
+      const month = date.getMonth(); // 0-11
+
+      if (!yearlyData[year]) {
+          yearlyData[year] = {
+              year: year,
+              grossProfit: 0,
+              retainedTaxes: 0, // Impuestos ya cobrados por el broker
+              salesCount: 0, // Contador de ventas
+              activeMonths: new Set()
+          };
+      }
+
+      const yearEntry = yearlyData[year];
+      yearEntry.grossProfit += tx.bruto;
+      yearEntry.retainedTaxes += tx.impuestos;
+      yearEntry.salesCount += 1;
+      yearEntry.activeMonths.add(month);
   });
 
-  const monthsCount = monthlyNetMap.size || 1; // Evitar división por cero
-  const totalNetResult = Array.from(monthlyNetMap.values()).reduce((a, b) => a + b, 0);
-  const promedioMensual = totalNetResult / monthsCount;
+  // Ordenar años descendente (más reciente primero)
+  const sortedYears = Object.keys(yearlyData).sort((a, b) => b - a);
 
-  // --- 3. Renderizar Tarjetas de Resumen (KPIs) ---
-  const summaryGrid = document.createElement('div');
-  summaryGrid.className = 'grid gap-4 md:grid-cols-2 xl:grid-cols-4';
-  summaryGrid.innerHTML = `
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Total Ganancias Histórico</p>
-      <p class="mt-2 text-2xl font-semibold text-emerald-600">${formatEuro(totalGanancias)}</p>
-      <p class="mt-1 text-xs text-slate-500">Suma de operaciones positivas</p>
-    </div>
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Total Pérdidas Histórico</p>
-      <p class="mt-2 text-2xl font-semibold text-rose-600">-${formatEuro(totalPerdidas)}</p>
-      <p class="mt-1 text-xs text-slate-500">Suma de operaciones negativas</p>
-    </div>
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Beneficio Neto</p>
-      <p class="mt-2 text-2xl font-semibold ${beneficioNeto >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${formatEuro(beneficioNeto)}</p>
-      <p class="mt-1 text-xs text-slate-500">Resultado global realizado</p>
-    </div>
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Promedio Mensual</p>
-      <p class="mt-2 text-2xl font-semibold ${promedioMensual >= 0 ? 'text-slate-900' : 'text-rose-600'}">${formatEuro(promedioMensual)}</p>
-      <p class="mt-1 text-xs text-slate-500">Rendimiento medio por mes activo</p>
-    </div>
-  `;
-  container.appendChild(summaryGrid);
+  if (sortedYears.length === 0) {
+      container.innerHTML = '<div class="text-slate-600 italic">No hay datos de ventas realizadas para mostrar estadísticas anuales.</div>';
+      return { element: container, charts: [] };
+  }
 
+  // --- 3. Renderizar Tarjetas por Año ---
+  const cardsGrid = document.createElement('div');
+  cardsGrid.className = 'grid gap-6 md:grid-cols-2 xl:grid-cols-3';
+
+  sortedYears.forEach(year => {
+      const data = yearlyData[year];
+
+      // Cálculos Fiscales
+      // Cuota Hacienda = (Cálculo Tramos) - (Nº Ventas * 1€)
+      let theoreticalTax = calculateSpanishSavingsTax(data.grossProfit);
+      theoreticalTax = Math.max(0, theoreticalTax - data.salesCount); // Restar 1€ por venta, mínimo 0
+
+      const pendingTax = theoreticalTax - data.retainedTaxes; // > 0 A pagar, < 0 A devolver
+      const finalNetProfit = data.grossProfit - theoreticalTax;
+
+      const card = document.createElement('div');
+      card.className = 'flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md';
+
+      const isGrossPositive = data.grossProfit >= 0;
+      const grossColorClass = isGrossPositive ? 'text-emerald-600' : 'text-rose-600';
+
+      // Formato para "A pagar" o "A devolver"
+      let pendingTaxText = formatEuro(Math.abs(pendingTax));
+      let pendingTaxLabel = "Ajuste Fiscal (0€)";
+      let pendingTaxColor = "text-slate-500";
+
+      if (pendingTax > 0.01) {
+          pendingTaxLabel = "A pagar a Hacienda";
+          pendingTaxColor = "text-rose-600";
+          pendingTaxText = `-${formatEuro(pendingTax)}`;
+      } else if (pendingTax < -0.01) {
+          pendingTaxLabel = "A devolver por Hacienda";
+          pendingTaxColor = "text-emerald-600";
+          pendingTaxText = `+${formatEuro(Math.abs(pendingTax))}`;
+      }
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+            <h3 class="text-xl font-bold text-slate-900">${year}</h3>
+            <span class="text-xs font-medium px-2.5 py-0.5 rounded-full ${isGrossPositive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                ${isGrossPositive ? 'Ganancia Bruta' : 'Pérdida Bruta'}
+            </span>
+        </div>
+
+        <div class="space-y-3 flex-grow">
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-slate-700">Beneficio Bruto</span>
+                <span class="text-base font-bold ${grossColorClass}">${formatEuro(data.grossProfit)}</span>
+            </div>
+
+            <div class="border-t border-slate-50 my-2"></div>
+
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-500">Retenido (Broker)</span>
+                <span class="text-sm font-mono text-slate-600">-${formatEuro(data.retainedTaxes)}</span>
+            </div>
+
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-500" title="Cálculo teórico tramos ahorro España - 1€/venta">Cuota Hacienda</span>
+                <span class="text-sm font-mono text-slate-600">-${formatEuro(theoreticalTax)}</span>
+            </div>
+
+            <div class="flex justify-between items-center bg-slate-50 p-2 rounded-md">
+                <span class="text-xs font-semibold uppercase text-slate-500">${pendingTaxLabel}</span>
+                <span class="text-sm font-bold ${pendingTaxColor}">${pendingTaxText}</span>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex justify-between items-center">
+                <span class="text-base font-bold text-slate-900">Beneficio Neto Real</span>
+                <span class="text-lg font-bold ${finalNetProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                    ${formatEuro(finalNetProfit)}
+                </span>
+            </div>
+            <p class="text-[10px] text-center text-slate-400 mt-1">Despúes de impuestos teóricos</p>
+        </div>
+      `;
+      cardsGrid.appendChild(card);
+  });
+
+  container.appendChild(cardsGrid);
+
+  // --- 4. Preparar Gráficos (Barras y Circular) ---
   const chartGrid = document.createElement('div');
-  chartGrid.className = 'grid gap-6 xl:grid-cols-2';
+  chartGrid.className = 'grid gap-6 xl:grid-cols-2 mt-6'; // Added margin top
   container.appendChild(chartGrid);
 
   const chartConfigs = [];
@@ -207,12 +311,10 @@ function createCharts(cash, mmf) {
     chartConfigs.push({ canvasId, type, data, options });
   }
 
-  // --- 4. Gráfico 1: Ganancias/Pérdidas Mensuales ---
-  // Preparar datos mensuales detallados
+  // --- Gráfico 1: Rendimiento Mensual (Barras) ---
   const monthlyDetailsMap = new Map();
   fifoData.realized.forEach(tx => {
       const date = new Date(tx.fecha_venta);
-      // Clave ordenable YYYY-MM
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
       if (!monthlyDetailsMap.has(key)) {
@@ -223,15 +325,12 @@ function createCharts(cash, mmf) {
       if (tx.resultado_bruto >= 0) {
           entry.gain += tx.resultado_bruto;
       } else {
-          entry.loss += Math.abs(tx.resultado_bruto); // Guardamos pérdida como positivo para sumar
+          entry.loss += Math.abs(tx.resultado_bruto);
       }
       entry.net += tx.resultado_bruto;
   });
 
-  // Ordenar cronológicamente
   const sortedMonths = Array.from(monthlyDetailsMap.values()).sort((a, b) => a.label.localeCompare(b.label));
-
-  // Formatear etiquetas para el eje X (ej. "Ene 2024")
   const monthLabels = sortedMonths.map(m => {
       const [y, mo] = m.label.split('-');
       const date = new Date(parseInt(y), parseInt(mo) - 1, 1);
@@ -250,7 +349,6 @@ function createCharts(cash, mmf) {
                   data: sortedMonths.map(m => m.net),
                   backgroundColor: sortedMonths.map(m => m.net >= 0 ? '#10b981' : '#ef4444'),
                   borderRadius: 4,
-                  // Guardamos datos extra para el tooltip
                   extraData: sortedMonths
               }]
           },
@@ -263,8 +361,7 @@ function createCharts(cash, mmf) {
                           label: (context) => {
                               const idx = context.dataIndex;
                               const item = context.dataset.extraData[idx];
-                              const netStr = formatEuro(item.net);
-                              return `Neto: ${netStr}`;
+                              return `Neto: ${formatEuro(item.net)}`;
                           },
                           afterBody: (tooltipItems) => {
                               const idx = tooltipItems[0].dataIndex;
@@ -286,8 +383,7 @@ function createCharts(cash, mmf) {
       });
   }
 
-  // --- 5. Gráfico 2: Activos más Rentables (Circular) ---
-  // Agrupar beneficio por activo (ISIN o Nombre)
+  // --- Gráfico 2: Distribución de Beneficios (Circular) ---
   const assetPerformance = {};
   fifoData.realized.forEach(tx => {
       const key = tx.activo || tx.isin || 'Desconocido';
@@ -295,16 +391,12 @@ function createCharts(cash, mmf) {
       assetPerformance[key] += tx.resultado_bruto;
   });
 
-  // Filtrar solo los que dieron beneficio positivo para este gráfico (o neto positivo)
-  // El usuario pidió "activos que más beneficio han dado", asumiremos beneficio neto positivo acumulado.
   let assetList = Object.entries(assetPerformance)
       .filter(([_, val]) => val > 0)
       .map(([label, value]) => ({ label, value }))
       .sort((a, b) => b.value - a.value);
 
   const totalPositivePerformance = assetList.reduce((sum, item) => sum + item.value, 0);
-
-  // Agrupar "Otros" (< 3%)
   const threshold = totalPositivePerformance * 0.03;
   const mainAssets = [];
   let otherValue = 0;
