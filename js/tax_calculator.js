@@ -11,9 +11,6 @@ function calculateTaxReport(transactions) {
   const TAX_RATE = 0.19;
   const TAX_DATE_LIMIT = new Date("2025-07-01");
 
-  const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
-  const round4 = (num) => Math.round((num + Number.EPSILON) * 10000) / 10000;
-
   // Determina si se debe aplicar retención (ISIN IE + fecha >= limite)
   const shouldApplyTax = (isin, dateObj) => {
     if (!isin) return false;
@@ -83,7 +80,7 @@ function calculateTaxReport(transactions) {
         mes: tx.dateObj.getMonth() + 1,
         tipo: incomeType,
         descripcion: tx.desc,
-        bruto: round2(tx.inc),
+        bruto: tx.inc, // Sin redondeo
         isin: isin
       });
       return;
@@ -124,10 +121,9 @@ function calculateTaxReport(transactions) {
       // --- VENTA (Incoming > 0) ---
       else if (tx.inc > 0) {
         let qtyToSell = tx.qty;
-        const commission = 1.0; // Venta siempre 1€
+        const commission = 1.0; // Venta ajustada a 1€ según petición explícita en fórmulas
 
         // Variables para acumular datos de esta venta
-        let currentSaleGrossProfit = 0.0;
         let totalBuyCost = 0.0;
         const matchedBuys = [];
 
@@ -138,11 +134,10 @@ function calculateTaxReport(transactions) {
           const matchedQty = Math.min(qtyToSell, availableQty);
 
           // Lógica solicitada: 1€ por cada matched_buy que no sea savings.
-          // Independientemente de si se ha cobrado antes o no (según la fórmula "1 * todas las matched_buys").
-          let matchedCommission = buyEntry.isSavings ? 0.0 : 1.0;
-
-          // Marcamos como cobrada para control interno, aunque la fórmula de reporte usa matchedCommission fijo
-          if (!buyEntry.commissionCharged && matchedCommission > 0) {
+          // Solo se cobra la comisión si no se ha cobrado ya para este lote.
+          let matchedCommission = 0.0;
+          if (!buyEntry.isSavings && !buyEntry.commissionCharged) {
+             matchedCommission = 1.0;
              buyEntry.commissionCharged = true;
           }
 
@@ -151,7 +146,7 @@ function calculateTaxReport(transactions) {
             buy_date: buyEntry.date,
             matched_qty: matchedQty,
             buy_price: buyEntry.buyPrice,
-            commission: matchedCommission, // Aquí guardamos 1 o 0 según si es savings
+            commission: matchedCommission, // Aquí guardamos 1 o 0 según si es savings y si ya se cobró
             isSavings: buyEntry.isSavings
           });
 
@@ -168,48 +163,44 @@ function calculateTaxReport(transactions) {
           }
         }
 
-        // --- Cálculo de Impuestos Inverso (Lógica Python) ---
+        const remainingQtyInPortfolio = active.fifoQueue.reduce((sum, batch) => sum + batch.qty, 0);
+
+        // --- Cálculo de Beneficios e Impuestos (Nueva Lógica) ---
+
+        // Calcular comisiones totales de compra asociadas
+        const totalBuyCommissions = matchedBuys.reduce((sum, m) => sum + m.commission, 0);
+        const totalCommissions = commission + totalBuyCommissions;
+
+        // 1. Beneficio Neto (Pocket Profit) = Importe Neto (Recibido) - Coste Total de Compras (incluyendo comisiones de compra)
+        // Nota: tx.inc ya tiene descontada la comisión de venta y los impuestos retenidos por el broker.
+        // totalBuyCost es el coste limpio (sin comisiones).
+        const netProfit = tx.inc - (totalBuyCost + totalBuyCommissions);
+
         let taxes = 0.0;
-        let bruto = 0.0;
-        let sellPrice = 0.0;
+        let grossProfit = 0.0; // Beneficio Bruto (Ganancia Patrimonial)
 
         // Determinar si aplica retención
         const applyTax = shouldApplyTax(isin, tx.dateObj);
 
         if (applyTax) {
-          // VentaBruta = (Incoming + Comision - 0.19 * CosteCompra) / 0.81
-          const incoming = tx.inc;
-          const vHypothetical = (incoming + commission - (TAX_RATE * totalBuyCost)) / (1 - TAX_RATE);
+          // 1. Calcular Beneficio Bruto con la fórmula del usuario: (beneficio_neto / 0.81) + 1 euro
+          grossProfit = (netProfit / 0.81) + 1.0;
 
-          if (vHypothetical > totalBuyCost) {
-            // Ganancia -> Retención
-            bruto = vHypothetical;
-            taxes = (bruto - totalBuyCost) * TAX_RATE;
-          } else {
-            // Pérdida -> No retención
-            bruto = incoming + commission;
-            taxes = 0.0;
-          }
+          // 2. Calcular impuestos con la fórmula del usuario: (beneficio bruto * 0.19) - 1
+          let calculatedTaxes = (grossProfit * TAX_RATE) - 1.0;
+          taxes = Math.max(0, calculatedTaxes); // Asegurar que los impuestos no sean negativos
         } else {
           // No aplica retención
-          bruto = tx.inc + commission;
+          // GrossProfit = NetProfit + TotalCommissions
+          // Esto equivale a (SellPrice - BuyPrice) * Qty
+          grossProfit = netProfit + totalCommissions;
           taxes = 0.0;
         }
 
-        sellPrice = bruto / tx.qty;
-
-        // Calcular Beneficios
-        // Gross Profit = (Precio Venta - Precio Compra) * Cantidad Casada
-        matchedBuys.forEach(match => {
-          const profit = (sellPrice - match.buy_price) * match.matched_qty;
-          currentSaleGrossProfit += profit;
-        });
-
-        // Sum of buy commissions (1 per matched buy non-savings) + sell commission (1)
-        const totalBuyCommissions = matchedBuys.reduce((sum, m) => sum + m.commission, 0);
-        const totalCommissions = commission + totalBuyCommissions;
-
-        const netProfit = currentSaleGrossProfit - totalCommissions - taxes;
+        // Calcular Precio de Venta Implícito
+        // Importe Bruto = Importe Neto + Impuestos + 1 (según petición)
+        const sellAmountBruto = tx.inc + taxes + 1.0;
+        const sellPrice = sellAmountBruto / tx.qty;
 
         // --- CALCULO DETALLADO POR LOTE (Para visualización perfecta) ---
         const detailedMatchedBuys = matchedBuys.map(m => {
@@ -219,28 +210,31 @@ function calculateTaxReport(transactions) {
           // 1. Beneficio Bruto del lote
           const batchGross = (sellPrice - m.buy_price) * m.matched_qty;
 
-          // 2. Comisiones imputables al lote
-          // = Comisión de compra (1€ si no es savings) + Parte proporcional de la comisión de venta
+          // 2. Comisiones
+          // Para la tabla: solo la comisión de compra (0 o 1).
+          const batchBuyCommissionForDisplay = m.commission;
+
+          // Para el cálculo del neto del lote: comisión de compra + parte proporcional de la de venta.
           const partSellComm = commission * ratio;
-          const batchComm = m.commission + partSellComm;
+          const totalCommissionsForBatchCalc = m.commission + partSellComm;
 
           // 3. Impuestos imputables al lote (prorrateados)
           const batchTax = taxes * ratio;
 
           // 4. Beneficio Neto del lote
-          const batchNet = batchGross - batchComm - batchTax;
+          const batchNet = batchGross - totalCommissionsForBatchCalc - batchTax;
 
           return {
             buy_operation: {
               str_date: m.buy_date
             },
-            matched_qty: round4(m.matched_qty),
-            buy_price: round4(m.buy_price),
-            // Nuevos campos calculados
-            batch_gross_profit: round2(batchGross),
-            batch_commissions: round2(batchComm),
-            batch_taxes: round2(batchTax),
-            batch_net_profit: round2(batchNet)
+            matched_qty: m.matched_qty, // Sin redondeo
+            buy_price: m.buy_price,     // Sin redondeo
+            // Nuevos campos calculados (sin redondear para precisión interna, UI redondeará)
+            batch_gross_profit: batchGross,
+            batch_commissions: batchBuyCommissionForDisplay, // FIX: Usar valor discreto (0 o 1) para la UI
+            batch_taxes: batchTax,
+            batch_net_profit: batchNet
           };
         });
 
@@ -257,15 +251,16 @@ function calculateTaxReport(transactions) {
             qty: tx.qty,
             amount: tx.inc,
             comissions: commission,
-            taxes: round2(taxes),
-            bruto: round2(bruto),
-            sell_price: round4(sellPrice)
+            taxes: taxes,
+            bruto: sellAmountBruto,
+            sell_price: sellPrice
           },
-          gross_profit: round2(currentSaleGrossProfit),
-          net_profit: round2(netProfit),
-          total_comissions: round2(totalCommissions), // Renamed from "comissions"
-          taxes: round2(taxes),
-          matched_buys: detailedMatchedBuys
+          gross_profit: grossProfit,
+          net_profit: netProfit,
+          total_comissions: totalCommissions,
+          taxes: taxes,
+          matched_buys: detailedMatchedBuys,
+          remaining_qty: remainingQtyInPortfolio
         };
 
         active.salesDetails.push(saleDetail);
@@ -299,9 +294,9 @@ function calculateTaxReport(transactions) {
       openPositions.push({
         isin: active.isin,
         nombre: active.name,
-        cantidad: round4(totalQty),
-        coste_total: round2(totalCost),
-        precio_promedio: round4(totalCost / totalQty)
+        cantidad: totalQty, // Sin redondeo
+        coste_total: totalCost, // Sin redondeo
+        precio_promedio: totalCost / totalQty // Sin redondeo
       });
     }
   });
@@ -319,23 +314,23 @@ function calculateTaxReport(transactions) {
       qty_vendida: sellOp.qty,
       importe_venta_neto: sellOp.amount, // Lo que llegó al banco
       importe_venta_bruto: sellOp.bruto,
-      coste_base: round2(costeBase),
+      coste_base: costeBase,
       resultado_bruto: detail.gross_profit, // Ganancia/Pérdida bruta
-      comision_estimada: detail.total_comissions, // Use renamed field
+      comision_estimada: detail.total_comissions,
       impuesto_estimado: detail.taxes,
       es_perdida: detail.gross_profit < 0,
       // New fields for UI
       ingresado: sellOp.amount,
       bruto: detail.gross_profit,
       impuestos: detail.taxes,
-      comision: detail.total_comissions, // Use renamed field
+      comision: detail.total_comissions,
       neto: detail.net_profit,
       lotes: detail.matched_buys.length // Cantidad de lotes casados
     };
   });
 
   // D) Generar incomeJson (agrupado por año/mes)
-  const incomeJson = buildNestedIncomeStructure(incomeReport, round2);
+  const incomeJson = buildNestedIncomeStructure(incomeReport);
 
   return {
     realized: realizedPnL,
@@ -346,7 +341,7 @@ function calculateTaxReport(transactions) {
   };
 }
 
-function buildNestedIncomeStructure(flatList, roundFn) {
+function buildNestedIncomeStructure(flatList) {
   const result = {};
   flatList.forEach(item => {
     if (!result[item.año]) result[item.año] = {};
@@ -368,17 +363,6 @@ function buildNestedIncomeStructure(flatList, roundFn) {
       monthGroup[key] += item.bruto;
       monthGroup['Total'] += item.bruto;
     }
-  });
-
-  // Redondeo final
-  Object.keys(result).forEach(y => {
-    Object.keys(result[y]).forEach(m => {
-      const grp = result[y][m];
-      grp['Interés'] = roundFn(grp['Interés']);
-      grp['Dividendos'] = roundFn(grp['Dividendos']);
-      grp['Saveback'] = roundFn(grp['Saveback']);
-      grp['Total'] = roundFn(grp['Total']);
-    });
   });
 
   return result;

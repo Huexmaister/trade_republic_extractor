@@ -135,8 +135,11 @@ function renderSalesComponent(salesData) {
         <div class="space-y-2">
           <h4 class="font-semibold text-slate-900 border-b border-slate-100 pb-1">Operación de Venta</h4>
           <div class="grid grid-cols-2 gap-y-1 text-xs sm:text-sm">
-            <span class="text-slate-500">Cantidad:</span>
+            <span class="text-slate-500">Cantidad Vendida:</span>
             <span class="text-right font-mono">${sale.sell_operation.qty.toLocaleString('es-ES', { maximumFractionDigits: 6 })}</span>
+
+            <span class="text-slate-500">Quedan en cartera:</span>
+            <span class="text-right font-mono">${(sale.remaining_qty || 0).toLocaleString('es-ES', { maximumFractionDigits: 6 })}</span>
 
             <span class="text-slate-500">Precio Venta:</span>
             <span class="text-right font-mono">${sale.sell_operation.sell_price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 })}</span>
@@ -179,6 +182,7 @@ function renderSalesComponent(salesData) {
                 <th class="px-2 py-1 text-right">Coste Total</th>
                 <th class="px-2 py-1 text-right">B. Bruto</th>
                 <th class="px-2 py-1 text-right">Impuestos</th>
+                <th class="px-2 py-1 text-right">Comisiones</th>
                 <th class="px-2 py-1 text-right rounded-r">B. Neto</th>
               </tr>
             </thead>
@@ -191,10 +195,11 @@ function renderSalesComponent(salesData) {
                 <tr>
                   <td class="px-2 py-1">${buy.buy_operation.str_date}</td>
                   <td class="px-2 py-1 text-right font-mono">${buy.matched_qty.toLocaleString('es-ES', { maximumFractionDigits: 6 })}</td>
-                  <td class="px-2 py-1 text-right font-mono">${buy.buy_price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 })}</td>
+                  <td class="px-2 py-1 text-right font-mono">${buy.buy_price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 4 })}</td>
                   <td class="px-2 py-1 text-right font-mono">${(buy.matched_qty * buy.buy_price).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
                   <td class="px-2 py-1 text-right font-mono">${buy.batch_gross_profit.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
                   <td class="px-2 py-1 text-right font-mono text-red-500">-${buy.batch_taxes.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
+                  <td class="px-2 py-1 text-right font-mono text-red-500">-${buy.batch_commissions.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
                   <td class="px-2 py-1 text-right font-mono font-semibold ${batchProfitClass}">${buy.batch_net_profit.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</td>
                 </tr>
               `}).join('')}
