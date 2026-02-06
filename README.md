@@ -8,6 +8,7 @@ Una herramienta moderna, segura y de código abierto para extraer, analizar y vi
 
 *   **Privacidad Total:** Todo el procesamiento se realiza localmente en tu navegador. Tus datos financieros nunca salen de tu ordenador.
 *   **Análisis de Portfolio (FIFO):** Cálculo automático de ganancias y pérdidas históricas utilizando el método FIFO (First-In, First-Out).
+*   **Edición y Recálculo:** Posibilidad de corregir fechas de transacciones manualmente y recalcular todo el reporte al instante.
 *   **Dashboard Interactivo:** Visualiza tu rendimiento mensual, distribución de beneficios por activo y métricas clave (Ganancia Total, Pérdida Total, Neto).
 *   **Exportación Flexible:** Descarga tus datos en formatos JSON, CSV o Excel para usarlos en otras herramientas o para tu declaración de impuestos.
 *   **Soporte Multi-idioma:** Detecta y procesa extractos en español, inglés, alemán e italiano.
@@ -69,7 +70,9 @@ La aplicación organiza la información en varias pestañas para facilitar su an
 Esta es la vista principal de tus movimientos bancarios.
 *   **Qué ves:** Una tabla detallada con cada movimiento de dinero (entradas y salidas).
 *   **Columnas:** Fecha, Tipo de operación, Descripción/Nombre, Cantidad, Dinero que entra (Incoming) y Dinero que sale (Outgoing).
-*   **Botones de Exportación:**
+*   **Edición:** Puedes modificar manualmente la fecha (`date_iso`) si detectas discrepancias con la fecha real de la operación.
+*   **Botones de Acción:**
+    *   **Guardar y Recalcular:** Si has editado alguna fecha, pulsa este botón para regenerar todos los cálculos (FIFO, impuestos, gráficos) con la nueva información.
     *   **CSV / Excel:** Descarga la tabla tal cual la ves para abrirla en Excel o Google Sheets.
     *   **Exportar Extracto (JSON):** Genera un archivo `extracto.json` con todos los datos crudos procesados del PDF. Ideal para copias de seguridad o análisis programático.
 
@@ -87,6 +90,7 @@ Una sección dedicada a los movimientos de liquidez.
 ### 4. Trading P&L (Beta)
 La herramienta más potente para el cálculo fiscal y análisis de rentabilidad.
 *   **Nota Importante:** Esta sección está en Beta. Los cálculos se realizan mediante ingeniería inversa de los extractos (Neto -> Bruto) asumiendo las tasas impositivas estándar.
+*   **Limitaciones:** No se tienen en cuenta criptomonedas ni derivados liquidados (estos últimos pueden figurar como posición abierta).
 *   **Qué ves:**
     *   **Posiciones Activas:** Una tabla con las acciones que aún tienes en cartera, calculando su coste medio de adquisición y cantidad total.
     *   **Ganancias y Pérdidas Históricas (FIFO):** Una tabla con cada venta realizada, desglosando:

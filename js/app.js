@@ -109,12 +109,24 @@ async function runAnalysis() {
     const { transactions: cashTransactionsWithSanity, failedChecks } = computeCashSanityChecks(results.cash || []);
 
     const cashDisplay = cashTransactionsWithSanity.map((t) => ({ ...t }));
-
-    // Store globally for tax calculator access
     window.currentCashDisplay = cashDisplay;
+    window.currentFailedChecks = failedChecks;
 
+    const interestDisplay = (results.interest || []).map((t) => ({ ...t }));
+    window.currentInterestDisplay = interestDisplay;
+
+    processResults(cashDisplay, interestDisplay, failedChecks);
+
+  } catch (error) {
+    console.error('Error durante el procesamiento:', error);
+    $("status").textContent = 'Error: ' + (error && error.message ? error.message : error);
+    applyRunButtonBase(false);
+  }
+}
+
+function processResults(cashDisplay, interestDisplay, failedChecks) {
     // Pass all relevant fields to analytics/trading
-    const cashForAnalytics = cashTransactionsWithSanity.map((t) => ({
+    const cashForAnalytics = cashDisplay.map((t) => ({
       date: t.date,
       date_iso: t.date_iso,
       type: t.type,
@@ -129,7 +141,6 @@ async function runAnalysis() {
       quantity: t.quantity
     }));
 
-    const interestDisplay = (results.interest || []).map((t) => ({ ...t }));
     const interestForAnalytics = interestDisplay.map((t) => ({
       date: t.date,
       paymentType: t.type,
@@ -231,12 +242,18 @@ async function runAnalysis() {
 
     applyRunButtonSuccess();
     scrollToResultsSummary();
-  } catch (error) {
-    console.error('Error durante el procesamiento:', error);
-    $("status").textContent = 'Error: ' + (error && error.message ? error.message : error);
-    applyRunButtonBase(false);
-  }
 }
+
+window.triggerRecalculation = function() {
+    if (window.currentCashDisplay) {
+        $("status").textContent = "Recalculando...";
+        applyRunButtonProcessing();
+        // Use setTimeout to allow UI to update status before heavy processing
+        setTimeout(() => {
+            processResults(window.currentCashDisplay, window.currentInterestDisplay || [], window.currentFailedChecks || 0);
+        }, 50);
+    }
+};
 
 // Intentar cargar automáticamente el PDF de ejemplo (solo para pruebas locales)
 async function tryLoadSamplePDF() {

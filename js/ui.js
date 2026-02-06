@@ -517,6 +517,23 @@ function renderComponent(title, rows, prefix, options = {}) {
   };
 
   mkBtn('Exportar Extracto (JSON)', () => downloadJson(rows, 'extracto.json'));
+
+  // Add "Guardar y Recalcular" button for Cash Transactions
+  if (prefix === 'cash') {
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = BUTTON_PRIMARY_CLASSES;
+      saveBtn.innerHTML = '<i data-feather="save" class="mr-2"></i> Guardar y Recalcular';
+      saveBtn.onclick = () => {
+          if (typeof window.triggerRecalculation === 'function') {
+              window.triggerRecalculation();
+          } else {
+              alert('Función de recálculo no disponible.');
+          }
+      };
+      bar.appendChild(saveBtn);
+  }
+
   container.appendChild(bar);
   
   // Simplified statistics for this table
@@ -547,12 +564,13 @@ function renderComponent(title, rows, prefix, options = {}) {
               quantity: r.quantity,
               incoming: r.incoming,
               outgoing: r.outgoing,
-              _sanityCheckOk: r._sanityCheckOk // Preserve sanity check flag
+              _sanityCheckOk: r._sanityCheckOk, // Preserve sanity check flag
+              _originalRow: r // Keep reference to original row for editing
           }));
   }
 
   // Add table
-  container.appendChild(makeTable(title, displayRows));
+  container.appendChild(makeTable(title, displayRows, prefix === 'cash'));
   return container;
 }
 
@@ -584,7 +602,7 @@ function renderSupportComponent({ cashCount = 0, mmfCount = 0, tradingCount = 0,
   return container;
 }
 
-function makeTable(title, rows) {
+function makeTable(title, rows, editable = false) {
   if (!rows || rows.length === 0) return document.createElement('div');
 
   const cols = Object.keys(rows[0]).filter(k => !k.startsWith('_'));
@@ -629,7 +647,25 @@ function makeTable(title, rows) {
     cols.forEach((k) => {
       const td = document.createElement('td');
       td.className = 'px-4 py-3 align-top break-words';
-      td.textContent = r[k];
+
+      if (editable && k === 'date_iso') {
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = r[k];
+          input.className = 'w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-500 focus:outline-none px-1';
+          input.onchange = (e) => {
+              // Update the original row in the global data
+              if (r._originalRow) {
+                  r._originalRow.date_iso = e.target.value;
+                  // Also update the local display row to keep consistency
+                  r.date_iso = e.target.value;
+              }
+          };
+          td.appendChild(input);
+      } else {
+          td.textContent = r[k];
+      }
+
       tr.appendChild(td);
     });
     tbody.appendChild(tr);

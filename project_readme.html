@@ -83,6 +83,7 @@
 <ul>
 <li><strong>Privacidad Total:</strong> Todo el procesamiento se realiza localmente en tu navegador. Tus datos financieros nunca salen de tu ordenador.</li>
 <li><strong>Análisis de Portfolio (FIFO):</strong> Cálculo automático de ganancias y pérdidas históricas utilizando el método FIFO (First-In, First-Out).</li>
+<li><strong>Edición y Recálculo:</strong> Posibilidad de corregir fechas de transacciones manualmente y recalcular todo el reporte al instante.</li>
 <li><strong>Dashboard Interactivo:</strong> Visualiza tu rendimiento mensual, distribución de beneficios por activo y métricas clave (Ganancia Total, Pérdida Total, Neto).</li>
 <li><strong>Exportación Flexible:</strong> Descarga tus datos en formatos JSON, CSV o Excel para usarlos en otras herramientas o para tu declaración de impuestos.</li>
 <li><strong>Soporte Multi-idioma:</strong> Detecta y procesa extractos en español, inglés, alemán e italiano.</li>
@@ -155,8 +156,10 @@
 <ul>
 <li><strong>Qué ves:</strong> Una tabla detallada con cada movimiento de dinero (entradas y salidas).</li>
 <li><strong>Columnas:</strong> Fecha, Tipo de operación, Descripción/Nombre, Cantidad, Dinero que entra (Incoming) y Dinero que sale (Outgoing).</li>
-<li><strong>Botones de Exportación:</strong>
+<li><strong>Edición:</strong> Puedes modificar manualmente la fecha (<code>date_iso</code>) si detectas discrepancias con la fecha real de la operación.</li>
+<li><strong>Botones de Acción:</strong>
 <ul>
+<li><strong>Guardar y Recalcular:</strong> Si has editado alguna fecha, pulsa este botón para regenerar todos los cálculos (FIFO, impuestos, gráficos) con la nueva información.</li>
 <li><strong>CSV / Excel:</strong> Descarga la tabla tal cual la ves para abrirla en Excel o Google Sheets.</li>
 <li><strong>Exportar Extracto (JSON):</strong> Genera un archivo <code>extracto.json</code> con todos los datos crudos procesados del PDF. Ideal para copias de seguridad o análisis programático.</li>
 </ul>
@@ -185,6 +188,7 @@
 <p>La herramienta más potente para el cálculo fiscal y análisis de rentabilidad.</p>
 <ul>
 <li><strong>Nota Importante:</strong> Esta sección está en Beta. Los cálculos se realizan mediante ingeniería inversa de los extractos (Neto -> Bruto) asumiendo las tasas impositivas estándar.</li>
+<li><strong>Limitaciones:</strong> No se tienen en cuenta criptomonedas ni derivados liquidados (estos últimos pueden figurar como posición abierta).</li>
 <li><strong>Qué ves:</strong>
 <ul>
 <li><strong>Posiciones Activas:</strong> Una tabla con las acciones que aún tienes en cartera, calculando su coste medio de adquisición y cantidad total.</li>
@@ -205,7 +209,21 @@
 </li>
 </ul>
 
-<h3>5. Resumen de Resultados</h3>
+<h3>5. Desglose de Ventas</h3>
+<p>Una vista detallada y amigable de cada operación de venta realizada.</p>
+<ul>
+<li><strong>Qué ves:</strong> Un listado de acordeones desplegables para cada venta.
+<li><strong>Resumen:</strong> De un vistazo ves el activo, la fecha y el beneficio neto (en verde o rojo).</li>
+<li><strong>Detalle:</strong> Al desplegar, accedes a toda la información de la operación:
+<ul>
+<li><strong>Operación de Venta:</strong> Cantidad, precio de venta, importe bruto y neto.</li>
+<li><strong>Resultado:</strong> Desglose de beneficio bruto, comisiones, impuestos y beneficio neto final.</li>
+<li><strong>Lotes de Compra (FIFO):</strong> Una tabla que muestra exactamente qué compras anteriores se utilizaron para calcular el coste de esta venta (fecha, cantidad y precio de compra de cada lote).</li>
+</ul>
+</li>
+</ul>
+
+<h3>6. Resumen de Resultados</h3>
 <p>Una vista final de auditoría.</p>
 <ul>
 <li><strong>Qué ves:</strong> Un resumen del número total de transacciones procesadas y alertas sobre posibles inconsistencias en los saldos (si las hubiera).</li>

@@ -139,7 +139,10 @@ function analyzeCashFlow(transactions) {
 }
 
 function createStatsSummary(cash, mmf) {
-  let html = '<div id="results-summary" class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-2">';
+  let html = '<div id="results-summary" class="space-y-6">';
+
+  // Main summary card
+  html += '<div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-2">';
   html += `<h3 class="text-lg font-semibold text-slate-900">Resumen de Transacciones (${cash.length + mmf.length} en total)</h3>`;
   if (cash.length > 0) {
     html += `<p class="text-sm text-slate-700"><strong class="font-semibold text-slate-900">${cash.length} Transacciones de Efectivo</strong> encontradas</p>`;
@@ -147,6 +150,26 @@ function createStatsSummary(cash, mmf) {
   if (mmf.length > 0) {
     html += `<p class="text-sm text-slate-700"><strong class="font-semibold text-slate-900">${mmf.length} Transacciones de Fondos Monetarios</strong> encontradas</p>`;
   }
+  html += '</div>';
+
+  // Beta notice card
+  html += `
+    <div class="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <div class="shrink-0 pt-[2px]">
+        <span class="inline-flex items-center rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-700">Beta</span>
+      </div>
+      <div class="space-y-2">
+        <p class="leading-relaxed">El análisis de Trading P&L está actualmente en fase Beta. Los resultados pueden estar incompletos – ¡se agradecen los comentarios!</p>
+        <ul class="list-disc pl-5 space-y-1">
+          <li>Las criptomonedas no se tienen en cuenta.</li>
+          <li>Los derivados liquidados figuran como posición abierta.</li>
+          <li>Si las fechas de venta del extracto no coinciden con la fecha de venta real, el cálculo de beneficios propagará un error.</li>
+        </ul>
+        <p class="leading-relaxed mt-2"><strong>Nota:</strong> Los cálculos tienen cierto margen de error en base a las comisiones y se presupone que el cálculo de impuestos de la App es correcto; si ese cálculo está mal, lo que hace la app también.</p>
+      </div>
+    </div>
+  `;
+
   html += '</div>';
   return html;
 }
@@ -287,8 +310,9 @@ function createCharts(cash, mmf) {
   container.appendChild(cardsGrid);
 
   // --- 4. Preparar Gráficos (Barras y Circular) ---
+  // Changed to single column layout (grid-cols-1)
   const chartGrid = document.createElement('div');
-  chartGrid.className = 'grid gap-6 xl:grid-cols-2 mt-6'; // Added margin top
+  chartGrid.className = 'grid gap-6 grid-cols-1 mt-6'; // Changed to single column
   container.appendChild(chartGrid);
 
   const chartConfigs = [];
@@ -305,6 +329,8 @@ function createCharts(cash, mmf) {
     const canvas = document.createElement('canvas');
     const canvasId = uniqueChartId('chart');
     canvas.id = canvasId;
+    // Limit height for better layout in single column
+    canvas.style.maxHeight = '400px';
     card.appendChild(heading);
     card.appendChild(canvas);
     chartGrid.appendChild(card);
@@ -354,6 +380,7 @@ function createCharts(cash, mmf) {
           },
           options: {
               responsive: true,
+              maintainAspectRatio: false, // Allow custom height
               plugins: {
                   legend: { display: false },
                   tooltip: {
@@ -431,6 +458,7 @@ function createCharts(cash, mmf) {
           },
           options: {
               responsive: true,
+              maintainAspectRatio: false, // Allow custom height
               plugins: {
                   legend: { position: 'right' },
                   tooltip: {

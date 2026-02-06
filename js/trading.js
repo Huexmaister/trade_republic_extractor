@@ -241,6 +241,7 @@ function parseTradingTransactions(cashTransactions) {
     
     tradingTxs.push({
       date: tx.date,
+      date_iso: tx.date_iso,
       isin,
       stockName: stockName.trim(),
       action,
@@ -251,7 +252,12 @@ function parseTradingTransactions(cashTransactions) {
     });
   });
   
-  return tradingTxs.sort((a, b) => new Date(parseTradingDate(a.date)) - new Date(parseTradingDate(b.date)));
+  // Sort using date_iso if available
+  return tradingTxs.sort((a, b) => {
+      const dA = a.date_iso ? new Date(a.date_iso) : parseTradingDate(a.date);
+      const dB = b.date_iso ? new Date(b.date_iso) : parseTradingDate(b.date);
+      return dA - dB;
+  });
 }
 
 function calculatePnL(tradingTransactions) {
@@ -337,8 +343,8 @@ function calculatePnL(tradingTransactions) {
       numBuys: pos.buys.length,
       numSells: pos.sells.length,
       totalTransactions: pos.transactions.length,
-      firstTrade: pos.transactions[0]?.date,
-      lastTrade: pos.transactions[pos.transactions.length - 1]?.date
+      firstTrade: pos.transactions[0]?.date_iso || pos.transactions[0]?.date,
+      lastTrade: pos.transactions[pos.transactions.length - 1]?.date_iso || pos.transactions[pos.transactions.length - 1]?.date
     });
   });
   
@@ -535,7 +541,7 @@ function renderTradingCharts(tradingData, tradingTransactions) {
       if (tradingTransactions.length > 3 && document.getElementById('tradingTimelineChart')) {
         const monthlyData = {};
         tradingTransactions.forEach(tx => {
-          const date = parseTradingDate(tx.date);
+          const date = tx.date_iso ? new Date(tx.date_iso) : parseTradingDate(tx.date);
           const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
           if (!monthlyData[monthKey]) {
             monthlyData[monthKey] = { buys: 0, sells: 0, buyVolume: 0, sellVolume: 0 };
